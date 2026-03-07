@@ -5,7 +5,7 @@
     "treeCollidersEnabled": {
       "title": "Tree Collision",
       "type": "selector",
-      "value": "Disabled",
+      "value": "Enabled",
       "options": [
         "Enabled",
         "Disabled"

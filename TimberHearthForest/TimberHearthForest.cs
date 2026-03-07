@@ -14,6 +14,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
 
 namespace TimberHearthForest
 {
@@ -21,7 +22,13 @@ namespace TimberHearthForest
     {
         public static TimberHearthForest Instance;
 
+        private const int SECTOR_SIZE = 200;
+
+        private const float MAX_GRASS_DISTANCE = 200.0f;
         private const float MAX_FIREFLY_DISTANCE = 100.0f;
+
+        private Dictionary<Vector3Int, GameObject> propSectors = new Dictionary<Vector3Int, GameObject>();
+        private Dictionary<Vector3Int, Vector3> propSectorAveragePosition = new Dictionary<Vector3Int, Vector3>();
 
         private List<GameObject> spawnedTrees = new List<GameObject>();
         private List<GameObject> spawnedGrass = new List<GameObject>();
@@ -117,9 +124,13 @@ namespace TimberHearthForest
 
         IEnumerator SpawnTrees(List<PropDetails> treeData)
         {
+            propSectors = new Dictionary<Vector3Int, GameObject>();
+            propSectorAveragePosition = new Dictionary<Vector3Int, Vector3>();
+
             // Clear the stored trees, grass tufts and particle systems
             spawnedTrees = new List<GameObject>();
             spawnedGrass = new List<GameObject>();
+
             spawnedFireflies = new List<ParticleSystem>();
 
             // Wait for scene to load
@@ -176,32 +187,34 @@ namespace TimberHearthForest
             // Load all the asset bundles to prevent the clones from being invisible
             foreach (string bundle in assetBundles) StreamingManager.LoadStreamingAssets(bundle);
 
-            // Used to group tree clones together for a cleaner hierachy
-            GameObject treeParent = new GameObject("TH_Trees_Surface");
-            treeParent.transform.SetParent(timberHearthSector.transform, false);
-            treeParent.transform.localPosition = Vector3.zero;
-            treeParent.transform.localRotation = Quaternion.identity;
-
-            // Used to group grass clones together for a cleaner hierachy
-            GameObject grassParent = new GameObject("TH_Grass_Surface");
-            grassParent.transform.SetParent(timberHearthSector.transform, false);
-            grassParent.transform.localPosition = Vector3.zero;
-            grassParent.transform.localRotation = Quaternion.identity;
-
-            // Used to group firefly clones together for a cleaner hierachy
-            GameObject firefliesParent = new GameObject("TH_Fireflies_Surface");
-            firefliesParent.transform.SetParent(timberHearthSector.transform, false);
-            firefliesParent.transform.localPosition = Vector3.zero;
-            firefliesParent.transform.localRotation = Quaternion.identity;
-
             int index = 0;
 
             foreach (PropDetails detail in treeData) {
+                // Get the detail's sector location
+                Vector3 detailCoords = timberHearthBody.transform.TransformPoint(new Vector3(detail.position.x, detail.position.y, detail.position.z));
+                Vector3Int sectorCoords = GetSectorFromTHCoords(detailCoords);
+
+                // Check if the sector exists
+                if (!propSectors.ContainsKey(sectorCoords))
+                {
+                    // Create the sector holder
+                    GameObject sectorHolder = CreateTHSector(timberHearthSector, sectorCoords);
+                    propSectors[sectorCoords] = sectorHolder;
+                    propSectorAveragePosition[sectorCoords] = Vector3.zero;
+                }
+
+                propSectorAveragePosition[sectorCoords] = GetTHCoordsFromSector(sectorCoords);
+
+                GameObject sectorParent = propSectors[sectorCoords];
+                Transform treeParent = sectorParent.transform.Find("TH_Trees_Surface");
+                Transform grassParent = sectorParent.transform.Find("TH_Grass_Surface");
+                Transform firefliesParent = sectorParent.transform.Find("TH_Fireflies_Surface");
+
                 // Spawn the tree
                 GameObject treeClone = Instantiate(treeTemplate);
 
                 // Parent the tree
-                treeClone.transform.SetParent(treeParent.transform, false);
+                treeClone.transform.SetParent(treeParent, false);
 
                 // Remove quantum components to prevent weird interactions with the tree clones
                 StripQuantumComponents(treeClone);
@@ -216,7 +229,7 @@ namespace TimberHearthForest
                 float randomScale = UnityEngine.Random.Range(0.7f, 1.4f);
 
                 // Set position, rotation and scale
-                treeClone.transform.position = timberHearthBody.transform.TransformPoint(new Vector3(detail.position.x, detail.position.y, detail.position.z));
+                treeClone.transform.position = detailCoords;
                 treeClone.transform.localRotation = Quaternion.Euler(detail.rotation.x + randOffsets.x, detail.rotation.y + randOffsets.y, detail.rotation.z + randOffsets.z);
                 treeClone.transform.localScale = new Vector3(randomScale, randomScale, randomScale);
 
@@ -228,7 +241,7 @@ namespace TimberHearthForest
                 // Add a collider to the trees
                 CapsuleCollider coll = treeClone.AddComponent<CapsuleCollider>();
                 coll.enabled = false;
-                coll.radius = 0.3f;
+                coll.radius = 0.35f;
                 coll.height = 20.0f;
                 coll.center = Vector3.up * 7.0f;
 
@@ -246,12 +259,12 @@ namespace TimberHearthForest
                 GameObject grassClone = Instantiate(grassTemplate);
 
                 // Parent the tree
-                grassClone.transform.SetParent(grassParent.transform, false);
+                grassClone.transform.SetParent(grassParent, false);
 
                 randomScale = UnityEngine.Random.Range(0.8f, 1.2f);
 
                 // Set position, rotation and scale
-                grassClone.transform.position = timberHearthBody.transform.TransformPoint(new Vector3(detail.position.x, detail.position.y, detail.position.z));
+                grassClone.transform.position = detailCoords;
                 grassClone.transform.localRotation = Quaternion.Euler(detail.rotation.x, detail.rotation.y, detail.rotation.z);
                 grassClone.transform.localScale = new Vector3(randomScale, randomScale, randomScale);
 
@@ -296,10 +309,10 @@ namespace TimberHearthForest
             foreach (string bundle in assetBundles) StreamingManager.LoadStreamingAssets(bundle);
         }
 
-        void AddFireflies(Transform treeTransform, GameObject fireflyHolder)
+        void AddFireflies(Transform treeTransform, Transform fireflyHolder)
         {
             GameObject fireflyObj = new GameObject("Fireflies");
-            fireflyObj.transform.SetParent(fireflyHolder.transform, false);
+            fireflyObj.transform.SetParent(fireflyHolder, false);
 
             fireflyObj.transform.localPosition = treeTransform.localPosition + Vector3.up * 5.0f;
             fireflyObj.transform.localRotation = Quaternion.Euler(treeTransform.localRotation.x, treeTransform.localRotation.y, treeTransform.localRotation.z);
@@ -344,6 +357,55 @@ namespace TimberHearthForest
             renderer.material = fireflyMaterial;
 
             spawnedFireflies.Add(ps);
+        }
+
+        private Vector3Int GetSectorFromTHCoords(Vector3 THCoords)
+        {
+            int x = Mathf.RoundToInt(THCoords.x / (float)SECTOR_SIZE);
+            int y = Mathf.RoundToInt(THCoords.y / (float)SECTOR_SIZE);
+            int z = Mathf.RoundToInt(THCoords.z / (float)SECTOR_SIZE);
+
+            Vector3Int coords = new Vector3Int(x, y, z);
+            return coords;
+        }
+
+        private Vector3 GetTHCoordsFromSector(Vector3Int SectorCoords)
+        {
+            float x = (float)(SectorCoords.x * SECTOR_SIZE);
+            float y = (float)(SectorCoords.y * SECTOR_SIZE);
+            float z = (float)(SectorCoords.z * SECTOR_SIZE);
+
+            Vector3 coords = new Vector3(x, y, z);
+            return coords;
+        }
+
+        private GameObject CreateTHSector(Sector THSector, Vector3Int sectorCoords)
+        {
+            // Used to group tree clones together for a cleaner hierachy
+            GameObject sectorParent = new GameObject($"TH_Forest_Sector_{sectorCoords.x}_{sectorCoords.y}_{sectorCoords.z}");
+            sectorParent.transform.SetParent(THSector.transform, false);
+            sectorParent.transform.localPosition = Vector3.zero;
+            sectorParent.transform.localRotation = Quaternion.identity;
+
+            // Used to group tree clones together for a cleaner hierachy
+            GameObject treeParent = new GameObject("TH_Trees_Surface");
+            treeParent.transform.SetParent(sectorParent.transform, false);
+            treeParent.transform.localPosition = Vector3.zero;
+            treeParent.transform.localRotation = Quaternion.identity;
+
+            // Used to group grass clones together for a cleaner hierachy
+            GameObject grassParent = new GameObject("TH_Grass_Surface");
+            grassParent.transform.SetParent(sectorParent.transform, false);
+            grassParent.transform.localPosition = Vector3.zero;
+            grassParent.transform.localRotation = Quaternion.identity;
+
+            // Used to group firefly clones together for a cleaner hierachy
+            GameObject firefliesParent = new GameObject("TH_Fireflies_Surface");
+            firefliesParent.transform.SetParent(sectorParent.transform, false);
+            firefliesParent.transform.localPosition = Vector3.zero;
+            firefliesParent.transform.localRotation = Quaternion.identity;
+
+            return sectorParent;
         }
 
         private void ToggleTreeHitboxes(bool enabled)
@@ -438,6 +500,55 @@ namespace TimberHearthForest
 
         public void Update()
         {
+            // Hide trees and grass which are far away and disable far away colliders to help improve performance
+            // Starting Benchmark (No Mod):  ~100fps on planet, ~80fps off planet
+            // No Optimisation Benchmark: ~60fps on planet, ~50fps off planet
+            UpdateSectors();
+
+            // Control whether each firefly group is currently visible
+            UpdateFireflies();
+        }
+
+        private void UpdateSectors()
+        {
+            // Get Timber Hearth
+            AstroObject THAstroObject = Locator.GetAstroObject(AstroObject.Name.TimberHearth);
+            // Get the current active camera
+            OWCamera playerBody = Locator.GetActiveCamera();
+
+            foreach (KeyValuePair<Vector3Int, GameObject> pair in propSectors)
+            {
+                GameObject sectorHolder = pair.Value;
+                Vector3 averageSectorPosition = propSectorAveragePosition[pair.Key];
+
+                // Props which are blocked from the player's view by Timber Hearth are hidden
+                if (THAstroObject && playerBody)
+                {
+                    Vector3 THToPlayer = playerBody.transform.position - THAstroObject.transform.position;
+
+                    Vector3 THToPlayerNorm = THToPlayer.normalized;
+                    Vector3 THToSectorNorm = (averageSectorPosition - THAstroObject.transform.position).normalized;
+
+                    float maxDistance = 600.0f;
+                    float minDistance = 250.0f;
+
+                    float maxDistanceSqr = maxDistance * maxDistance;
+                    float minDistanceSqr = minDistance * minDistance;
+
+                    float scaledPlayerToTHDistance = Mathf.Max(THToPlayer.sqrMagnitude - minDistanceSqr, 0.0f) / (maxDistanceSqr - minDistanceSqr);
+
+                    // Dot will be -vew on the side farthest from the player and +ve on the side closest to the player
+                    float dot = Dot(THToPlayerNorm, THToSectorNorm);
+                    float maxDot = Mathf.Lerp(0.2f, -0.45f, Mathf.Clamp01(scaledPlayerToTHDistance));
+
+                    bool isOccluded = dot < maxDot;
+                    sectorHolder.SetActive(isOccluded ? false : true);
+                }
+            }
+        }
+
+        private void UpdateFireflies()
+        {
             // Get the sun and Timber Hearth's world position
             AstroObject THAstroObject = Locator.GetAstroObject(AstroObject.Name.TimberHearth);
             AstroObject sunAstroObject = Locator.GetAstroObject(AstroObject.Name.Sun);
@@ -463,7 +574,7 @@ namespace TimberHearthForest
                 Vector3 THWorldNormal = fireflyPS.transform.position - THPosition;
 
                 // Calculate the dot product
-                float dot = sunDirFromTH.x * THWorldNormal.x + sunDirFromTH.y * THWorldNormal.y + sunDirFromTH.z * THWorldNormal.z;
+                float dot = Dot(sunDirFromTH, THWorldNormal);
                 bool isNight = dot < 0.0f;
 
                 bool enabledAtNight = isNight && firefliesEnabledAtNight;
@@ -492,6 +603,12 @@ namespace TimberHearthForest
                     if (fireflyPS.particleCount <= 0) fireflyPS.Pause();
                 }
             }
+        }
+
+        private float Dot(Vector3 a, Vector3 b)
+        {
+            // Compute the dot product between vector a and b
+            return (a.x * b.x + a.y * b.y + a.z * b.z);
         }
 
         private GameObject GetGameObjectAtPath(string path)
