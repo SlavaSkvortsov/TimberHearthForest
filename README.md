@@ -12,6 +12,6 @@ This mod covers the barren grass surface of Timber Hearth with hand placed trees
 
 In the mod settings:
 
-- The denisty of trees, grass and fireflies can be seperately set to either ultra, high, medium, low or hidden depending on your preference.
-- Tree hitboxes can be toggled on / off depending on your preference (be careful when you turn them on, you don't want to be inside a tree when this happens!)
+- The denisty of trees, grass and fireflies can be seperately set to either ultra, high, medium, low or hidden.
+- Tree hitboxes can be toggled on / off depending (be careful when you turn them on, you don't want to be inside a tree when this happens!)
 - Firefly timing can be changed to have them show during the day, night or day and night
