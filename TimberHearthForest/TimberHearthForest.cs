@@ -34,6 +34,8 @@ namespace TimberHearthForest
 
         private List<ParticleSystem> spawnedFireflies = new List<ParticleSystem>();
 
+        private GameObject THSatelliteObject;
+
         private Sector timberHearthSector;
         private Sector quantumMoonSector;
 
@@ -144,6 +146,9 @@ namespace TimberHearthForest
             }
 
             ModHelper.Console.WriteLine("Located TimberHearth_Body object successfully", MessageType.Success);
+
+            // Get Timber Hearth's mapping satellite
+            THSatelliteObject = GameObject.Find("Satellite_Body");
 
             // Locate the tree template gameobject
             const string treeTemplatePath = "QuantumMoon_Body/Sector_QuantumMoon/State_TH/Interactables_THState/Crater_Surface/Surface_AlpineTrees_Single/QAlpine_Tree_.25 (1)";
@@ -519,11 +524,29 @@ namespace TimberHearthForest
             AstroObject THAstroObject = Locator.GetAstroObject(AstroObject.Name.TimberHearth);
             // Get the current active camera
             OWCamera playerCamera = Locator.GetActiveCamera();
+            // Get the player's surveyor probe
+            SurveyorProbe playerProbe = Locator.GetProbe();
 
             if (!THAstroObject || !playerCamera) return;
 
             Vector3 playerCoordsTHSpace = THAstroObject.transform.InverseTransformPoint(playerCamera.transform.position);
             Vector3Int playerSectorCoords = GetSectorCoordsFromTHCoords(playerCoordsTHSpace);
+
+            // If the satellite exists, calculate its Timber Hearth sector grid coordinates
+            Vector3Int satelliteSectorCoords = new Vector3Int(0, 0, 0);
+            if (THSatelliteObject)
+            {
+                Vector3 satelliteCoordsTHSpace = THAstroObject.transform.InverseTransformPoint(THSatelliteObject.transform.position);
+                satelliteSectorCoords = GetSectorCoordsFromTHCoords(satelliteCoordsTHSpace);
+            }
+
+            // If the probe exists, calculate its Timber Hearth sector grid coordinates
+            Vector3Int probeSectorCoords = new Vector3Int(0, 0, 0);
+            if (playerProbe)
+            {
+                Vector3 probeCoordsTHSpace = THAstroObject.transform.InverseTransformPoint(playerProbe.transform.position);
+                probeSectorCoords = GetSectorCoordsFromTHCoords(probeCoordsTHSpace);
+            }
 
             float playerTHDistance = playerCoordsTHSpace.magnitude;
 
@@ -544,7 +567,17 @@ namespace TimberHearthForest
 
                 // Props which are blocked from the player's view by Timber Hearth are hidden
                 float dot = (float)Dot(sectorCoords, playerSectorCoords);
-                bool isOccluded = dot < currentDot;
+
+                // If the satellite exists, then calculate whether the tree group is blocked from its view
+                float satelliteDot = -10.0f;
+                if (playerProbe) satelliteDot = (float)Dot(sectorCoords, satelliteSectorCoords);
+
+                // If the probe exists, then calculate whether the tree group is blocked from its view
+                float probeDot = -10.0f;
+                if (playerProbe) probeDot = (float)Dot(sectorCoords, probeSectorCoords);
+
+                // Occlusion only occurs when neither the probe, satellite or player can see the tree group
+                bool isOccluded = Mathf.Max(dot, probeDot, satelliteDot) < currentDot;
 
                 sectorHolder.SetActive(!isOccluded);
             }
