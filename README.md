@@ -6,14 +6,12 @@
 
 ## Info
 
-This mod covers the barren grass surface of Timber Hearth with trees and grass.
-
-The trees do not have hitboxes to make landing and flying easier (you can imagine how difficult it would be to land on the planet if they did!).
+This mod covers the barren grass surface of Timber Hearth with hand placed trees, grass and, at night, fireflies.
 
 ## Usage
 
-The denisty of grass an trees can be set in the mod settings menu between either ultra, high, medium, low or hidden depending on your preference. Grass and tree density can also be set seperately.
+In the mod settings:
 
-## Known Issues
-
-Grass has a small chance of not spawning, don't worry, next game loop it will be there again - working on finding the cause of this!
+- The denisty of trees, grass and fireflies can be seperately set to either ultra, high, medium, low or hidden depending on your preference.
+- Tree hitboxes can be toggled on / off depending on your preference (be careful when you turn them on, you don't want to be inside a tree when this happens!)
+- Firefly timing can be changed to have them show during the day, night or day and night
