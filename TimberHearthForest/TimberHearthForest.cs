@@ -22,13 +22,12 @@ namespace TimberHearthForest
     {
         public static TimberHearthForest Instance;
 
-        private const int SECTOR_SIZE = 200;
+        private const int SECTOR_SIZE = 100;
 
         private const float MAX_GRASS_DISTANCE = 200.0f;
         private const float MAX_FIREFLY_DISTANCE = 100.0f;
 
         private Dictionary<Vector3Int, GameObject> propSectors = new Dictionary<Vector3Int, GameObject>();
-        private Dictionary<Vector3Int, Vector3> propSectorAveragePosition = new Dictionary<Vector3Int, Vector3>();
 
         private List<GameObject> spawnedTrees = new List<GameObject>();
         private List<GameObject> spawnedGrass = new List<GameObject>();
@@ -125,7 +124,6 @@ namespace TimberHearthForest
         IEnumerator SpawnTrees(List<PropDetails> treeData)
         {
             propSectors = new Dictionary<Vector3Int, GameObject>();
-            propSectorAveragePosition = new Dictionary<Vector3Int, Vector3>();
 
             // Clear the stored trees, grass tufts and particle systems
             spawnedTrees = new List<GameObject>();
@@ -187,23 +185,28 @@ namespace TimberHearthForest
             // Load all the asset bundles to prevent the clones from being invisible
             foreach (string bundle in assetBundles) StreamingManager.LoadStreamingAssets(bundle);
 
+            // Used to group sectors clones together for a cleaner hierachy
+            GameObject sectorsParent = new GameObject($"TH_Forest_Sectors");
+            sectorsParent.transform.SetParent(timberHearthSector.transform, false);
+            sectorsParent.transform.localPosition = Vector3.zero;
+            sectorsParent.transform.localRotation = Quaternion.identity;
+
             int index = 0;
 
             foreach (PropDetails detail in treeData) {
                 // Get the detail's sector location
-                Vector3 detailCoords = timberHearthBody.transform.TransformPoint(new Vector3(detail.position.x, detail.position.y, detail.position.z));
-                Vector3Int sectorCoords = GetSectorFromTHCoords(detailCoords);
+                Vector3 THLocalCoords = new Vector3(detail.position.x, detail.position.y, detail.position.z);
+                Vector3Int sectorCoords = GetSectorCoordsFromTHCoords(THLocalCoords);
+
+                Vector3 detailWorldCoords = timberHearthBody.transform.TransformPoint(THLocalCoords);
 
                 // Check if the sector exists
                 if (!propSectors.ContainsKey(sectorCoords))
                 {
                     // Create the sector holder
-                    GameObject sectorHolder = CreateTHSector(timberHearthSector, sectorCoords);
+                    GameObject sectorHolder = CreateTHSector(sectorsParent, sectorCoords);
                     propSectors[sectorCoords] = sectorHolder;
-                    propSectorAveragePosition[sectorCoords] = Vector3.zero;
                 }
-
-                propSectorAveragePosition[sectorCoords] = GetTHCoordsFromSector(sectorCoords);
 
                 GameObject sectorParent = propSectors[sectorCoords];
                 Transform treeParent = sectorParent.transform.Find("TH_Trees_Surface");
@@ -229,7 +232,7 @@ namespace TimberHearthForest
                 float randomScale = UnityEngine.Random.Range(0.7f, 1.4f);
 
                 // Set position, rotation and scale
-                treeClone.transform.position = detailCoords;
+                treeClone.transform.position = detailWorldCoords;
                 treeClone.transform.localRotation = Quaternion.Euler(detail.rotation.x + randOffsets.x, detail.rotation.y + randOffsets.y, detail.rotation.z + randOffsets.z);
                 treeClone.transform.localScale = new Vector3(randomScale, randomScale, randomScale);
 
@@ -264,7 +267,7 @@ namespace TimberHearthForest
                 randomScale = UnityEngine.Random.Range(0.8f, 1.2f);
 
                 // Set position, rotation and scale
-                grassClone.transform.position = detailCoords;
+                grassClone.transform.position = detailWorldCoords;
                 grassClone.transform.localRotation = Quaternion.Euler(detail.rotation.x, detail.rotation.y, detail.rotation.z);
                 grassClone.transform.localScale = new Vector3(randomScale, randomScale, randomScale);
 
@@ -359,7 +362,7 @@ namespace TimberHearthForest
             spawnedFireflies.Add(ps);
         }
 
-        private Vector3Int GetSectorFromTHCoords(Vector3 THCoords)
+        private Vector3Int GetSectorCoordsFromTHCoords(Vector3 THCoords)
         {
             int x = Mathf.RoundToInt(THCoords.x / (float)SECTOR_SIZE);
             int y = Mathf.RoundToInt(THCoords.y / (float)SECTOR_SIZE);
@@ -379,11 +382,11 @@ namespace TimberHearthForest
             return coords;
         }
 
-        private GameObject CreateTHSector(Sector THSector, Vector3Int sectorCoords)
+        private GameObject CreateTHSector(GameObject sectorHolder, Vector3Int sectorCoords)
         {
             // Used to group tree clones together for a cleaner hierachy
             GameObject sectorParent = new GameObject($"TH_Forest_Sector_{sectorCoords.x}_{sectorCoords.y}_{sectorCoords.z}");
-            sectorParent.transform.SetParent(THSector.transform, false);
+            sectorParent.transform.SetParent(sectorHolder.transform, false);
             sectorParent.transform.localPosition = Vector3.zero;
             sectorParent.transform.localRotation = Quaternion.identity;
 
@@ -503,6 +506,7 @@ namespace TimberHearthForest
             // Hide trees and grass which are far away and disable far away colliders to help improve performance
             // Starting Benchmark (No Mod):  ~100fps on planet, ~80fps off planet
             // No Optimisation Benchmark: ~60fps on planet, ~50fps off planet
+            // Optimisation Benchmark: ~80fps on planet, ~60fps off planet
             UpdateSectors();
 
             // Control whether each firefly group is currently visible
@@ -514,36 +518,35 @@ namespace TimberHearthForest
             // Get Timber Hearth
             AstroObject THAstroObject = Locator.GetAstroObject(AstroObject.Name.TimberHearth);
             // Get the current active camera
-            OWCamera playerBody = Locator.GetActiveCamera();
+            OWCamera playerCamera = Locator.GetActiveCamera();
+
+            if (!THAstroObject || !playerCamera) return;
+
+            Vector3 playerCoordsTHSpace = THAstroObject.transform.InverseTransformPoint(playerCamera.transform.position);
+            Vector3Int playerSectorCoords = GetSectorCoordsFromTHCoords(playerCoordsTHSpace);
+
+            float playerTHDistance = playerCoordsTHSpace.magnitude;
+
+            const float MAX_DISTANCE = 800.0f;
+            const float MIN_DISTANCE = 250.0f;
+
+            // When the player is closer to Timber Hearth, more trees are hidden by the horizon
+            const float FAR_DOT = -0.4f;
+            const float CLOSE_DOT = 0.3f;
+
+            float playerDistanceFract = Mathf.Clamp01((playerTHDistance - MIN_DISTANCE) / (MAX_DISTANCE - MIN_DISTANCE));
+            float currentDot = Mathf.Lerp(CLOSE_DOT, FAR_DOT, playerDistanceFract);
 
             foreach (KeyValuePair<Vector3Int, GameObject> pair in propSectors)
             {
                 GameObject sectorHolder = pair.Value;
-                Vector3 averageSectorPosition = propSectorAveragePosition[pair.Key];
+                Vector3Int sectorCoords = pair.Key;
 
                 // Props which are blocked from the player's view by Timber Hearth are hidden
-                if (THAstroObject && playerBody)
-                {
-                    Vector3 THToPlayer = playerBody.transform.position - THAstroObject.transform.position;
+                float dot = (float)Dot(sectorCoords, playerSectorCoords);
+                bool isOccluded = dot < currentDot;
 
-                    Vector3 THToPlayerNorm = THToPlayer.normalized;
-                    Vector3 THToSectorNorm = (averageSectorPosition - THAstroObject.transform.position).normalized;
-
-                    float maxDistance = 600.0f;
-                    float minDistance = 250.0f;
-
-                    float maxDistanceSqr = maxDistance * maxDistance;
-                    float minDistanceSqr = minDistance * minDistance;
-
-                    float scaledPlayerToTHDistance = Mathf.Max(THToPlayer.sqrMagnitude - minDistanceSqr, 0.0f) / (maxDistanceSqr - minDistanceSqr);
-
-                    // Dot will be -vew on the side farthest from the player and +ve on the side closest to the player
-                    float dot = Dot(THToPlayerNorm, THToSectorNorm);
-                    float maxDot = Mathf.Lerp(0.2f, -0.45f, Mathf.Clamp01(scaledPlayerToTHDistance));
-
-                    bool isOccluded = dot < maxDot;
-                    sectorHolder.SetActive(isOccluded ? false : true);
-                }
+                sectorHolder.SetActive(!isOccluded);
             }
         }
 
@@ -606,6 +609,12 @@ namespace TimberHearthForest
         }
 
         private float Dot(Vector3 a, Vector3 b)
+        {
+            // Compute the dot product between vector a and b
+            return (a.x * b.x + a.y * b.y + a.z * b.z);
+        }
+
+        private int Dot(Vector3Int a, Vector3Int b)
         {
             // Compute the dot product between vector a and b
             return (a.x * b.x + a.y * b.y + a.z * b.z);
