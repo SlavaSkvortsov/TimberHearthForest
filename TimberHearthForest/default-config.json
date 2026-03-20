@@ -61,6 +61,16 @@
         "Hidden"
       ],
       "tooltip": "Changes the amount of firefly emitters on Timber Hearth"
+    },
+    "cloudsEnabled": {
+      "title": "Clouds",
+      "type": "selector",
+      "value": "Enabled",
+      "options": [
+        "Enabled",
+        "Disabled"
+      ],
+      "tooltip": "Toggles on/off Timber Hearth's clouds"
     }
 
   }

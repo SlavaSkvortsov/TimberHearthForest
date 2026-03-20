@@ -6,6 +6,7 @@ using OWML.ModHelper;
 using OWML.Utils;
 using Steamworks;
 using System;
+using System.IO;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Tracing;
@@ -30,6 +31,8 @@ namespace TimberHearthForest
         private List<GameObject> spawnedGrass = new List<GameObject>();
 
         private List<ParticleSystem> spawnedFireflies = new List<ParticleSystem>();
+
+        private List<MeshRenderer> cloudRenderers = new List<MeshRenderer>();
 
         private GameObject THSatelliteObject;
 
@@ -97,6 +100,9 @@ namespace TimberHearthForest
 
             string fireflyDensityPreset = config.GetSettingsValue<string>("fireflyDensity");
             UpdatePropDensity(fireflyDensityPreset, "firefly");
+
+            bool cloudsEnabled = config.GetSettingsValue<string>("cloudsEnabled") == "Enabled";
+            foreach (MeshRenderer rend in cloudRenderers) rend.transform.gameObject.SetActive(cloudsEnabled);
         }
 
         private void LoadAndSpawnProps(string jsonFilePath)
@@ -121,6 +127,108 @@ namespace TimberHearthForest
 
             // Spawn the trees on the surface of Timber Hearth
             StartCoroutine(SpawnTrees(spawnData));
+
+            // Setup clouds around Timber Hearth
+            SpawnAndSetupClouds();
+        }
+
+        private void SpawnAndSetupClouds()
+        {
+            // Clear the stored cloud renderers
+            cloudRenderers = new List<MeshRenderer>();
+
+            AstroObject timberHearthAstroObject = Locator.GetAstroObject(AstroObject.Name.TimberHearth);
+            GameObject cloudHolder = timberHearthAstroObject?.GetComponentInChildren<Sector>()?.transform.gameObject;
+
+            if (cloudHolder == null)
+            {
+                ModHelper.Console.WriteLine("Couldn't locate the Timber Hearth Sector", MessageType.Error);
+                return;
+            }
+
+            // Load the cloud texture
+            Texture2D cloudTexture = LoadTexture(ModHelper.Manifest.ModFolderPath + "Assets/timberHearthClouds.png");
+
+            if (cloudTexture == null)
+            {
+                ModHelper.Console.WriteLine("Failed to load the cloud texture file", MessageType.Error);
+                return;
+            }
+
+            Shader transparentShader = Shader.Find("Standard");
+
+            if (transparentShader == null)
+            {
+                ModHelper.Console.WriteLine("Failed to locate the Standard material shader", MessageType.Error);
+                return;
+            }
+
+            // Create the cloud material
+            Material mat = new Material(transparentShader);
+
+            // Set rendering mode to transparent
+            mat.SetFloat("_Mode", 3);
+
+            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetInt("_ZWrite", 0);
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.EnableKeyword("_ALPHABLEND_ON");
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            mat.renderQueue = 3000;
+
+            mat.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
+            mat.SetFloat("_Cull", 0);
+
+            mat.color = new Color(1f, 1f, 1f, 0.5f);
+            mat.mainTexture = cloudTexture;
+            
+            // Create the out facing cloud sphere
+            GameObject cloudSphereOut = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            cloudSphereOut.transform.SetParent(cloudHolder.transform, false);
+
+            cloudSphereOut.GetComponent<MeshFilter>()?.mesh = CreateSphereMesh(32, 32, 1.0f);
+
+            cloudSphereOut.name = "TH_Clouds_Out";
+            cloudSphereOut.GetComponent<SphereCollider>().enabled = false;
+
+            cloudSphereOut.transform.localPosition = Vector3.zero;
+            cloudSphereOut.transform.localRotation = Quaternion.identity;
+            cloudSphereOut.transform.localScale = Vector3.one * 295.0f;
+
+            cloudSphereOut.GetComponent<MeshRenderer>().material = mat;
+            cloudSphereOut.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            cloudSphereOut.GetComponent<MeshRenderer>().receiveShadows = true;
+
+            // Store the out facing cloud sphere renderer
+            cloudRenderers.Add(cloudSphereOut.GetComponent<MeshRenderer>());
+
+            // Create the in facing cloud sphere
+            GameObject cloudSphereIn = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            cloudSphereIn.transform.SetParent(cloudHolder.transform, false);
+
+            cloudSphereIn.GetComponent<MeshFilter>()?.mesh = CreateSphereMesh(32, 32, 1.0f);
+
+            // Invert the normals of the mesh
+            cloudSphereIn.GetComponent<MeshFilter>().mesh = InvertMesh(cloudSphereIn.GetComponent<MeshFilter>().mesh);
+
+            cloudSphereIn.name = "TH_Clouds_In";
+            cloudSphereIn.GetComponent<SphereCollider>().enabled = false;
+
+            cloudSphereIn.transform.localPosition = Vector3.zero;
+            cloudSphereIn.transform.localRotation = Quaternion.identity;
+            cloudSphereIn.transform.localScale = Vector3.one * 295.0f;
+
+            cloudSphereIn.GetComponent<MeshRenderer>().material = mat;
+            cloudSphereIn.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            cloudSphereIn.GetComponent<MeshRenderer>().receiveShadows = true;
+
+            // Store the in facing cloud sphere renderer
+            cloudRenderers.Add(cloudSphereIn.GetComponent<MeshRenderer>());
+
+            // Apply the initial cloud visibility setting
+            bool cloudsEnabled = ModHelper.Config.GetSettingsValue<string>("cloudsEnabled") == "Enabled";
+            foreach (MeshRenderer rend in cloudRenderers) rend.transform.gameObject.SetActive(cloudsEnabled);
         }
 
         IEnumerator SpawnTrees(List<PropDetails> treeData)
@@ -138,7 +246,8 @@ namespace TimberHearthForest
             yield return new WaitForSeconds(3f);
 
             // Locate TimberHearth_Body
-            GameObject timberHearthBody = GameObject.Find("TimberHearth_Body");
+            //GameObject timberHearthBody = GameObject.Find("TimberHearth_Body");
+            GameObject timberHearthBody = Locator.GetAstroObject(AstroObject.Name.TimberHearth)?.transform.gameObject;
 
             if (timberHearthBody == null)
             {
@@ -470,6 +579,9 @@ namespace TimberHearthForest
 
             // Control whether each firefly group is currently visible
             UpdateFireflies();
+
+            // Scrolls the cloud textures
+            UpdateClouds();
         }
 
         private void UpdateSectors()
@@ -576,6 +688,14 @@ namespace TimberHearthForest
             }
         }
 
+        private void UpdateClouds()
+        {
+            foreach (MeshRenderer rend in cloudRenderers)
+            {
+                rend.material.mainTextureOffset = new Vector2(Time.time * 0.002f, 0);
+            }
+        }
+
         private float Dot(Vector3 a, Vector3 b)
         {
             // Compute the dot product between vector a and b
@@ -651,6 +771,102 @@ namespace TimberHearthForest
             }
 
             return null;
+        }
+
+        private Texture2D LoadTexture(string filePath)
+        {
+            if (!File.Exists(filePath))
+            {
+                ModHelper.Console.WriteLine($"Failed to load file at path: {filePath}", MessageType.Error);
+                return null;
+            }
+
+            byte[] fileData = File.ReadAllBytes(filePath);
+
+            Texture2D texture = new Texture2D(2, 2);
+            if (texture.LoadImage(fileData)) return texture;
+
+            return null;
+        }
+
+        private Mesh InvertMesh(Mesh original)
+        {
+            Mesh mesh = Instantiate(original);
+
+            // Flip normals
+            for (int i = 0; i < mesh.normals.Length; i++) mesh.normals[i] = -mesh.normals[i];
+
+            // Flip triangle winding
+            for (int i = 0; i < mesh.subMeshCount; i++)
+            {
+                int[] triangles = mesh.GetTriangles(i);
+
+                for (int j = 0; j < triangles.Length; j += 3)
+                {
+                    // swap 0 and 1
+                    int temp = triangles[j];
+                    triangles[j] = triangles[j + 1];
+                    triangles[j + 1] = temp;
+                }
+
+                mesh.SetTriangles(triangles, i);
+            }
+
+            return mesh;
+        }
+
+        private Mesh CreateSphereMesh(int latitudeSegments, int longitudeSegments, float radius)
+        {
+            Mesh mesh = new Mesh();
+
+            List<Vector3> vertices = new List<Vector3>();
+            List<Vector3> normals = new List<Vector3>();
+            List<Vector2> uvs = new List<Vector2>();
+            List<int> triangles = new List<int>();
+
+            for (int lat = 0; lat <= latitudeSegments; lat++)
+            {
+                float a1 = Mathf.PI * lat / latitudeSegments;
+                float sin1 = Mathf.Sin(a1);
+                float cos1 = Mathf.Cos(a1);
+
+                for (int lon = 0; lon <= longitudeSegments; lon++)
+                {
+                    float a2 = 2 * Mathf.PI * lon / longitudeSegments;
+                    float sin2 = Mathf.Sin(a2);
+                    float cos2 = Mathf.Cos(a2);
+
+                    Vector3 pos = new Vector3(sin1 * cos2, cos1, sin1 * sin2) * radius;
+
+                    vertices.Add(pos);
+                    normals.Add(pos.normalized);
+                    uvs.Add(new Vector2((float)lon / longitudeSegments, (float)lat / latitudeSegments));
+                }
+            }
+
+            for (int lat = 0; lat < latitudeSegments; lat++)
+            {
+                for (int lon = 0; lon < longitudeSegments; lon++)
+                {
+                    int current = lat * (longitudeSegments + 1) + lon;
+                    int next = current + longitudeSegments + 1;
+
+                    triangles.Add(current);
+                    triangles.Add(next);
+                    triangles.Add(current + 1);
+
+                    triangles.Add(current + 1);
+                    triangles.Add(next);
+                    triangles.Add(next + 1);
+                }
+            }
+
+            mesh.SetVertices(vertices);
+            mesh.SetNormals(normals);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(triangles, 0);
+
+            return mesh;
         }
 
         private List<PropDetails> ParseJson(string json)
