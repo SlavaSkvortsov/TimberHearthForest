@@ -6,14 +6,16 @@ using OWML.ModHelper;
 using OWML.Utils;
 using Steamworks;
 using System;
-using System.IO;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Tracing;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
@@ -105,18 +107,19 @@ namespace TimberHearthForest
             foreach (MeshRenderer rend in cloudRenderers) rend.transform.gameObject.SetActive(cloudsEnabled);
         }
 
-        private void LoadAndSpawnProps(string jsonFilePath)
+        private void LoadAndSpawnProps(string spawnDataFileLoc)
         {
             // If the tree spawn data file doesn't exist then exit
-            if (!System.IO.File.Exists(jsonFilePath))
+            if (!System.IO.File.Exists(spawnDataFileLoc))
             {
-                ModHelper.Console.WriteLine($"Couldn't find {jsonFilePath}", MessageType.Error);
+                ModHelper.Console.WriteLine($"Couldn't find {spawnDataFileLoc}", MessageType.Error);
                 return;
             }
 
             // Load the tree spawn data and convert it to a list of PropDetails
-            string json = System.IO.File.ReadAllText(jsonFilePath);
-            List<PropDetails> spawnData = ParseJson(json);
+            List<PropDetails> spawnData = FileLoadingUtils.LoadAndParseJSON(spawnDataFileLoc);
+
+            ModHelper.Console.WriteLine($"Parsed {spawnData.Count} tree details.", MessageType.Success);
 
             // If the spawn data is null then exit
             if (spawnData == null)
@@ -147,7 +150,7 @@ namespace TimberHearthForest
             }
 
             // Load the cloud texture
-            Texture2D cloudTexture = LoadTexture(ModHelper.Manifest.ModFolderPath + "Assets/timberHearthClouds.png");
+            Texture2D cloudTexture = FileLoadingUtils.LoadTexture(ModHelper.Manifest.ModFolderPath + "Assets/timberHearthClouds.png", ModHelper.Console);
 
             if (cloudTexture == null)
             {
@@ -155,16 +158,16 @@ namespace TimberHearthForest
                 return;
             }
 
-            Shader transparentShader = Shader.Find("Standard");
+            Shader standardShader = Shader.Find("Standard");
 
-            if (transparentShader == null)
+            if (standardShader == null)
             {
                 ModHelper.Console.WriteLine("Failed to locate the Standard material shader", MessageType.Error);
                 return;
             }
 
             // Create the cloud material
-            Material mat = new Material(transparentShader);
+            Material mat = new Material(standardShader);
 
             // Set rendering mode to transparent
             mat.SetFloat("_Mode", 3);
@@ -177,10 +180,20 @@ namespace TimberHearthForest
             mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
             mat.renderQueue = 3000;
 
-            mat.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
-            mat.SetFloat("_Cull", 0);
+            // Load the cloud texture
+            Texture2D cloudNormalTexture = FileLoadingUtils.LoadTexture(ModHelper.Manifest.ModFolderPath + "Assets/timberHearthCloudsNormal.png", ModHelper.Console);
 
-            mat.color = new Color(1f, 1f, 1f, 0.5f);
+            if (cloudNormalTexture == null)
+            {
+                ModHelper.Console.WriteLine("Failed to load the cloud normal texture file", MessageType.Error);
+            } else
+            {
+                mat.EnableKeyword("_NORMALMAP");
+                mat.SetTexture("_BumpMap", cloudNormalTexture);
+                mat.SetFloat("_BumpScale", 0.8f);
+            }
+
+            mat.color = new Color(1.0f, 1.0f, 1.0f, 0.5f);
             mat.mainTexture = cloudTexture;
             
             // Create the out facing cloud sphere
@@ -189,7 +202,7 @@ namespace TimberHearthForest
 
             cloudSphereOut.GetComponent<MeshFilter>()?.mesh = CreateSphereMesh(32, 32, 1.0f);
 
-            cloudSphereOut.name = "TH_Clouds_Out";
+            cloudSphereOut.name = "TH_Clouds_In";
             cloudSphereOut.GetComponent<SphereCollider>().enabled = false;
 
             cloudSphereOut.transform.localPosition = Vector3.zero;
@@ -212,7 +225,7 @@ namespace TimberHearthForest
             // Invert the normals of the mesh
             cloudSphereIn.GetComponent<MeshFilter>().mesh = InvertMesh(cloudSphereIn.GetComponent<MeshFilter>().mesh);
 
-            cloudSphereIn.name = "TH_Clouds_In";
+            cloudSphereIn.name = "TH_Clouds_Out";
             cloudSphereIn.GetComponent<SphereCollider>().enabled = false;
 
             cloudSphereIn.transform.localPosition = Vector3.zero;
@@ -220,6 +233,7 @@ namespace TimberHearthForest
             cloudSphereIn.transform.localScale = Vector3.one * 295.0f;
 
             cloudSphereIn.GetComponent<MeshRenderer>().material = mat;
+            cloudSphereIn.GetComponent<MeshRenderer>().material.SetFloat("_BumpScale", -0.8f);
             cloudSphereIn.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             cloudSphereIn.GetComponent<MeshRenderer>().receiveShadows = true;
 
@@ -262,7 +276,7 @@ namespace TimberHearthForest
 
             // Locate the tree template gameobject
             const string treeTemplatePath = "QuantumMoon_Body/Sector_QuantumMoon/State_TH/Interactables_THState/Crater_Surface/Surface_AlpineTrees_Single/QAlpine_Tree_.25 (1)";
-            GameObject treeTemplate = GetGameObjectAtPath(treeTemplatePath);
+            GameObject treeTemplate = PropFinderUtils.GetGameObjectAtPath(treeTemplatePath, ModHelper.Console);
 
             if (treeTemplate == null)
             {
@@ -278,7 +292,7 @@ namespace TimberHearthForest
 
             // Locate the grass template gameobject
             const string grassTemplatePath = "TimberHearth_Body/Sector_TH/Sector_Village/Sector_LowerVillage/DetailPatches_LowerVillage/LandingGeyserVillageArea/Foliage_TH_GrassPatch (10)";
-            GameObject grassTemplate = GetGameObjectAtPath(grassTemplatePath);
+            GameObject grassTemplate = PropFinderUtils.GetGameObjectAtPath(grassTemplatePath, ModHelper.Console);
 
             if (grassTemplate == null)
             {
@@ -580,7 +594,7 @@ namespace TimberHearthForest
             // Control whether each firefly group is currently visible
             UpdateFireflies();
 
-            // Scrolls the cloud textures
+            // Scrolls the cloud texture
             UpdateClouds();
         }
 
@@ -702,93 +716,6 @@ namespace TimberHearthForest
             return (a.x * b.x + a.y * b.y + a.z * b.z);
         }
 
-        private int Dot(Vector3Int a, Vector3Int b)
-        {
-            // Compute the dot product between vector a and b
-            return (a.x * b.x + a.y * b.y + a.z * b.z);
-        }
-
-        private GameObject GetGameObjectAtPath(string path)
-        {
-            string[] stepNames = path.Split('/');
-
-            // Get the first step in the path's corresponding GameObject
-            GameObject go = FindRootObject(stepNames[0]);
-
-            // If the first step doesn't exist then return null
-            if (go == null)
-            {
-                ModHelper.Console.WriteLine($"Couldn't find object at path: {path}, failed to locate {stepNames[0]}", MessageType.Error);
-                return null;
-            }
-
-            // Iterate through the remaining steps in the path and find the corresponding child GameObject at each step
-            for (int i = 1; i < stepNames.Length; i++)
-            {
-                Transform next_step = null;
-
-                // Check all the children for the net step
-                foreach (Transform child in go.transform)
-                {
-                    if (child.name == stepNames[i])
-                    {
-                        next_step = child;
-                        break;
-                    }
-                }
-
-                // If the next step doesn't exist then return null
-                if (next_step == null)
-                {
-                    ModHelper.Console.WriteLine($"Couldn't find object at path: {path}, failed to locate {stepNames[i]}", MessageType.Error);
-                    return null;
-                }
-
-                // Update the current GameObject to the next step in the path
-                go = next_step.gameObject;
-            }
-
-            // Return the final GameObject
-            return go;
-        }
-
-        private GameObject FindRootObject(string name)
-        {
-            // Loop through each unity scene
-            for (int i = 0; i < SceneManager.sceneCount; i++)
-            {
-                // Get the current scene
-                Scene scene = SceneManager.GetSceneAt(i);
-
-                // If the scene is not loaded then skip
-                if (!scene.isLoaded) continue;
-
-                // Loop over each root component of the scene and try to find the wanted root
-                foreach (GameObject root in scene.GetRootGameObjects())
-                {
-                    if (root.name == name) return root;
-                }
-            }
-
-            return null;
-        }
-
-        private Texture2D LoadTexture(string filePath)
-        {
-            if (!File.Exists(filePath))
-            {
-                ModHelper.Console.WriteLine($"Failed to load file at path: {filePath}", MessageType.Error);
-                return null;
-            }
-
-            byte[] fileData = File.ReadAllBytes(filePath);
-
-            Texture2D texture = new Texture2D(2, 2);
-            if (texture.LoadImage(fileData)) return texture;
-
-            return null;
-        }
-
         private Mesh InvertMesh(Mesh original)
         {
             Mesh mesh = Instantiate(original);
@@ -867,61 +794,6 @@ namespace TimberHearthForest
             mesh.SetTriangles(triangles, 0);
 
             return mesh;
-        }
-
-        private List<PropDetails> ParseJson(string json)
-        {
-            // Rest in peace 39097 line JSON file, you will be remembered
-
-            // Prepare the list that will hold the prop details extracted from the JSON
-            List<PropDetails> propDetailList = new List<PropDetails>();
-
-            // Split JSON into seperate lines for easier processing
-            string[] lines = json.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-
-            PropDetails currentProp = null;
-
-            foreach (string line in lines)
-            {
-                // Remove any leading or trailing whitespace
-                string trimmedLine = line.Trim();
-
-                // If the line doesn't contain both [ and ], it's not a line with position and rotation data, so skip
-                if (!trimmedLine.Contains("[") || !trimmedLine.Contains("]")) continue;
-
-                // Extract the position and rotation data
-                string[] treeData = trimmedLine.Split(new char[] { '[', ']', ',' }, StringSplitOptions.RemoveEmptyEntries);
-
-                // This shouldn't be called, but protects against bad data formatting
-                // as treeData should consist of 3 position values and 3 rotation values
-                if (treeData.Length != 6) continue;
-
-                currentProp = new PropDetails();
-
-                // Extract the prop position data
-                float posX = float.Parse(treeData[0].Trim(), CultureInfo.InvariantCulture);
-                float posY = float.Parse(treeData[1].Trim(), CultureInfo.InvariantCulture);
-                float posZ = float.Parse(treeData[2].Trim(), CultureInfo.InvariantCulture);
-
-                currentProp.position = new Vector3(posX, posY, posZ);
-
-                // Extract the prop rotation data
-                float rotX = float.Parse(treeData[3].Trim(), CultureInfo.InvariantCulture);
-                float rotY = float.Parse(treeData[4].Trim(), CultureInfo.InvariantCulture);
-                float rotZ = float.Parse(treeData[5].Trim(), CultureInfo.InvariantCulture);
-
-                currentProp.rotation = new Vector3(rotX, rotY, rotZ);
-
-                // Add the new prop to the list
-                propDetailList.Add(currentProp);
-
-                // Clear the current prop
-                currentProp = null;
-            }
-
-            ModHelper.Console.WriteLine($"Parsed {propDetailList.Count} tree details.", MessageType.Success);
-
-            return propDetailList;
         }
 
     }
