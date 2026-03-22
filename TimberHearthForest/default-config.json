@@ -2,16 +2,6 @@
   "$schema": "https://raw.githubusercontent.com/ow-mods/owml/master/schemas/config_schema.json",
   "enabled": true,
   "settings": {
-    "treeCollidersEnabled": {
-      "title": "Tree Collision",
-      "type": "selector",
-      "value": "Enabled",
-      "options": [
-        "Enabled",
-        "Disabled"
-      ],
-      "tooltip": "Toggles on/off the tree colliders"
-    },
     "treeDensity": {
       "title": "Tree Density",
       "type": "selector",
@@ -23,7 +13,7 @@
         "Low",
         "Hidden"
       ],
-      "tooltip": "Changes the amount of extra trees on Timber Hearth"
+      "tooltip": "Controls the amount of extra trees on Timber Hearth"
     },
     "grassDensity": {
       "title": "Grass Density",
@@ -36,7 +26,35 @@
         "Low",
         "Hidden"
       ],
-      "tooltip": "Changes the amount of extra grass tufts on Timber Hearth"
+      "tooltip": "Controls the amount of extra grass tufts on Timber Hearth"
+    },
+    "cloudDensity": {
+      "title": "Cloud Density",
+      "type": "selector",
+      "value": "High",
+      "options": [
+        "High",
+        "Medium",
+        "Low",
+        "Hidden"
+      ],
+      "tooltip": "Controls the amount of clouds around Timber Hearth"
+    },
+    "hitboxSeparator": {
+      "type": "separator"
+    },
+    "treeCollidersEnabled": {
+      "title": "Tree Collision",
+      "type": "selector",
+      "value": "Enabled",
+      "options": [
+        "Enabled",
+        "Disabled"
+      ],
+      "tooltip": "Toggles on/off tree colliders"
+    },
+    "fireflySeparator": {
+      "type": "separator"
     },
     "fireflyEnabled": {
       "title": "Fireflies Visible",
@@ -47,7 +65,7 @@
         "Day",
         "Day and Night"
       ],
-      "tooltip": "Toggles on/off the tree colliders"
+      "tooltip": "Controls the time frame when fireflies are visible"
     },
     "fireflyDensity": {
       "title": "Firefly Density",
@@ -60,17 +78,20 @@
         "Low",
         "Hidden"
       ],
-      "tooltip": "Changes the amount of firefly emitters on Timber Hearth"
+      "tooltip": "Controls the amount of firefly emitters on Timber Hearth"
     },
-    "cloudsEnabled": {
-      "title": "Clouds",
+    "optimisationSeparator": {
+      "type": "separator"
+    },
+    "treeOcclusionOptimisation": {
+      "title": "Tree Occlusion Optimisation",
       "type": "selector",
       "value": "Enabled",
       "options": [
         "Enabled",
         "Disabled"
       ],
-      "tooltip": "Toggles on/off Timber Hearth's clouds"
+      "tooltip": "When enabled trees which are hidden from the camera's view are disabled"
     }
 
   }

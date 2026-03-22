@@ -34,12 +34,15 @@ namespace TimberHearthForest
 
         private List<ParticleSystem> spawnedFireflies = new List<ParticleSystem>();
 
-        private List<MeshRenderer> cloudRenderers = new List<MeshRenderer>();
+        private List<GameObject> cloudObjects = new List<GameObject>();
+        private List<float> cloudVelocities = new List<float>();
 
         private GameObject THSatelliteObject;
 
         private Sector timberHearthSector;
         private Sector quantumMoonSector;
+
+        private bool forestSectorOptimisationEnabled = true;
 
         private bool firefliesEnabledAtNight = true;
         private bool firefliesEnabledAtDay = true;
@@ -87,24 +90,33 @@ namespace TimberHearthForest
         /// Called by OWML, once at the start and upon each config setting change.
         public override void Configure(IModConfig config)
         {
+            // Update the tree density
             string treeDensityPreset = config.GetSettingsValue<string>("treeDensity");
             UpdatePropDensity(treeDensityPreset, "tree");
 
+            // Update whether tree colliders are enabled
             bool treeCollidersEnabled = config.GetSettingsValue<string>("treeCollidersEnabled") == "Enabled";
             ToggleTreeHitboxes(treeCollidersEnabled);
 
+            // Update sector based on whether the sector optimisation is enabled
+            forestSectorOptimisationEnabled = ModHelper.Config.GetSettingsValue<string>("treeOcclusionOptimisation") == "Enabled";
+
+            // Update the grass density
             string grassDensityPreset = config.GetSettingsValue<string>("grassDensity");
             UpdatePropDensity(grassDensityPreset, "grass");
 
+            // Update when fireflies should be active
             string fireflyEnabledState = config.GetSettingsValue<string>("fireflyEnabled");
             firefliesEnabledAtNight = fireflyEnabledState == "Night" || fireflyEnabledState == "Day and Night";
             firefliesEnabledAtDay = fireflyEnabledState == "Day" || fireflyEnabledState == "Day and Night";
 
+            // Update the firefly emitter density
             string fireflyDensityPreset = config.GetSettingsValue<string>("fireflyDensity");
             UpdatePropDensity(fireflyDensityPreset, "firefly");
 
-            bool cloudsEnabled = config.GetSettingsValue<string>("cloudsEnabled") == "Enabled";
-            foreach (MeshRenderer rend in cloudRenderers) rend.transform.gameObject.SetActive(cloudsEnabled);
+            // Update whether clouds are enabled
+            string cloudDensityPreset = config.GetSettingsValue<string>("cloudDensity");
+            UpdateCloudDensity(cloudDensityPreset);
         }
 
         private void LoadAndSpawnProps(string spawnDataFileLoc)
@@ -138,7 +150,8 @@ namespace TimberHearthForest
         private void SpawnAndSetupClouds()
         {
             // Clear the stored cloud renderers
-            cloudRenderers = new List<MeshRenderer>();
+            cloudObjects = new List<GameObject>();
+            cloudVelocities = new List<float>();
 
             AstroObject timberHearthAstroObject = Locator.GetAstroObject(AstroObject.Name.TimberHearth);
             GameObject cloudHolder = timberHearthAstroObject?.GetComponentInChildren<Sector>()?.transform.gameObject;
@@ -149,100 +162,42 @@ namespace TimberHearthForest
                 return;
             }
 
-            // Load the cloud texture
-            Texture2D cloudTexture = FileLoadingUtils.LoadTexture(ModHelper.Manifest.ModFolderPath + "Assets/timberHearthClouds.png", ModHelper.Console);
+            CloudUtils.SetModDirectoryPath(ModHelper.Manifest.ModFolderPath);
+            CloudUtils.SetModConsole(ModHelper.Console);
 
-            if (cloudTexture == null)
-            {
-                ModHelper.Console.WriteLine("Failed to load the cloud texture file", MessageType.Error);
-                return;
-            }
+            CloudUtils.CreateCloud(cloudHolder, "timberHearthClouds", "timberHearthCloudsNormal", 0.0017f, true, ref cloudObjects, ref cloudVelocities);
+            CloudUtils.CreateCloud(cloudHolder, "timberHearthClouds", "timberHearthCloudsNormal", 0.0017f, false, ref cloudObjects, ref cloudVelocities);
 
-            Shader standardShader = Shader.Find("Standard");
+            CloudUtils.CreateCloud(cloudHolder, "timberHearthClouds2", "timberHearthCloudsNormal2", 0.0025f, true, ref cloudObjects, ref cloudVelocities);
+            CloudUtils.CreateCloud(cloudHolder, "timberHearthClouds2", "timberHearthCloudsNormal2", 0.0025f, false, ref cloudObjects, ref cloudVelocities);
 
-            if (standardShader == null)
-            {
-                ModHelper.Console.WriteLine("Failed to locate the Standard material shader", MessageType.Error);
-                return;
-            }
-
-            // Create the cloud material
-            Material mat = new Material(standardShader);
-
-            // Set rendering mode to transparent
-            mat.SetFloat("_Mode", 3);
-
-            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            mat.SetInt("_ZWrite", 0);
-            mat.DisableKeyword("_ALPHATEST_ON");
-            mat.EnableKeyword("_ALPHABLEND_ON");
-            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            mat.renderQueue = 3000;
-
-            // Load the cloud texture
-            Texture2D cloudNormalTexture = FileLoadingUtils.LoadTexture(ModHelper.Manifest.ModFolderPath + "Assets/timberHearthCloudsNormal.png", ModHelper.Console);
-
-            if (cloudNormalTexture == null)
-            {
-                ModHelper.Console.WriteLine("Failed to load the cloud normal texture file", MessageType.Error);
-            } else
-            {
-                mat.EnableKeyword("_NORMALMAP");
-                mat.SetTexture("_BumpMap", cloudNormalTexture);
-                mat.SetFloat("_BumpScale", 0.8f);
-            }
-
-            mat.color = new Color(1.0f, 1.0f, 1.0f, 0.5f);
-            mat.mainTexture = cloudTexture;
-            
-            // Create the out facing cloud sphere
-            GameObject cloudSphereOut = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            cloudSphereOut.transform.SetParent(cloudHolder.transform, false);
-
-            cloudSphereOut.GetComponent<MeshFilter>()?.mesh = CreateSphereMesh(32, 32, 1.0f);
-
-            cloudSphereOut.name = "TH_Clouds_In";
-            cloudSphereOut.GetComponent<SphereCollider>().enabled = false;
-
-            cloudSphereOut.transform.localPosition = Vector3.zero;
-            cloudSphereOut.transform.localRotation = Quaternion.identity;
-            cloudSphereOut.transform.localScale = Vector3.one * 295.0f;
-
-            cloudSphereOut.GetComponent<MeshRenderer>().material = mat;
-            cloudSphereOut.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            cloudSphereOut.GetComponent<MeshRenderer>().receiveShadows = true;
-
-            // Store the out facing cloud sphere renderer
-            cloudRenderers.Add(cloudSphereOut.GetComponent<MeshRenderer>());
-
-            // Create the in facing cloud sphere
-            GameObject cloudSphereIn = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            cloudSphereIn.transform.SetParent(cloudHolder.transform, false);
-
-            cloudSphereIn.GetComponent<MeshFilter>()?.mesh = CreateSphereMesh(32, 32, 1.0f);
-
-            // Invert the normals of the mesh
-            cloudSphereIn.GetComponent<MeshFilter>().mesh = InvertMesh(cloudSphereIn.GetComponent<MeshFilter>().mesh);
-
-            cloudSphereIn.name = "TH_Clouds_Out";
-            cloudSphereIn.GetComponent<SphereCollider>().enabled = false;
-
-            cloudSphereIn.transform.localPosition = Vector3.zero;
-            cloudSphereIn.transform.localRotation = Quaternion.identity;
-            cloudSphereIn.transform.localScale = Vector3.one * 295.0f;
-
-            cloudSphereIn.GetComponent<MeshRenderer>().material = mat;
-            cloudSphereIn.GetComponent<MeshRenderer>().material.SetFloat("_BumpScale", -0.8f);
-            cloudSphereIn.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            cloudSphereIn.GetComponent<MeshRenderer>().receiveShadows = true;
-
-            // Store the in facing cloud sphere renderer
-            cloudRenderers.Add(cloudSphereIn.GetComponent<MeshRenderer>());
+            CloudUtils.CreateCloud(cloudHolder, "timberHearthClouds3", "timberHearthCloudsNormal3", 0.0034f, true, ref cloudObjects, ref cloudVelocities);
+            CloudUtils.CreateCloud(cloudHolder, "timberHearthClouds3", "timberHearthCloudsNormal3", 0.0034f, false, ref cloudObjects, ref cloudVelocities);
 
             // Apply the initial cloud visibility setting
-            bool cloudsEnabled = ModHelper.Config.GetSettingsValue<string>("cloudsEnabled") == "Enabled";
-            foreach (MeshRenderer rend in cloudRenderers) rend.transform.gameObject.SetActive(cloudsEnabled);
+            string cloudDensityPreset = ModHelper.Config.GetSettingsValue<string>("cloudDensity");
+            UpdateCloudDensity(cloudDensityPreset);
+        }
+
+        private void UpdateCloudDensity(string cloudDensityPreset)
+        {
+            int cloudDensity = 0;
+
+            switch (cloudDensityPreset)
+            {
+                case "High":    cloudDensity = 3; break;
+                case "Medium":  cloudDensity = 2; break;
+                case "Low":     cloudDensity = 1; break;
+                case "Hidden":  cloudDensity = 0; break;
+                default:
+                    ModHelper.Console.WriteLine($"Unknown cloud density setting: {cloudDensity}", MessageType.Error);
+                    return;
+            }
+
+            for (int i = 0; i < cloudObjects.Count; i++)
+            {
+                cloudObjects[i]?.SetActive(i < cloudDensity * 2);
+            }
         }
 
         IEnumerator SpawnTrees(List<PropDetails> treeData)
@@ -414,6 +369,9 @@ namespace TimberHearthForest
             bool treeCollidersEnabled = ModHelper.Config.GetSettingsValue<string>("treeCollidersEnabled") == "Enabled";
             ToggleTreeHitboxes(treeCollidersEnabled);
 
+            // Update sector based on whether the sector optimisation is enabled
+            forestSectorOptimisationEnabled = ModHelper.Config.GetSettingsValue<string>("treeOcclusionOptimisation") == "Enabled";
+
             // Update the grass density
             string grassDensityPreset = ModHelper.Config.GetSettingsValue<string>("grassDensity");
             UpdatePropDensity(treeDensityPreset, "grass");
@@ -532,21 +490,11 @@ namespace TimberHearthForest
 
             switch (densityDescriptor)
             {
-                case "Hidden":
-                    density = propCount * 2;
-                    break;
-                case "Low":
-                    density = 4;
-                    break;
-                case "Medium":
-                    density = 3;
-                    break;
-                case "High":
-                    density = 2;
-                    break;
-                case "Ultra":
-                    density = 1;
-                    break;
+                case "Ultra": density = 1; break;
+                case "High": density = 2; break;
+                case "Medium":  density = 3; break;
+                case "Low": density = 4; break;
+                case "Hidden": density = propCount * 2; break;
                 default:
                     ModHelper.Console.WriteLine($"Unknown {spawnType} density setting: {density}", MessageType.Error);
                     return;
@@ -600,6 +548,12 @@ namespace TimberHearthForest
 
         private void UpdateSectors()
         {
+            if (!forestSectorOptimisationEnabled)
+            {
+                foreach (KeyValuePair<Vector3Int, ForestSectorUtils.ForestSector> pair in forestSectors) pair.Value.sectorParent.SetActive(true);
+                return;
+            }
+
             // Get Timber Hearth
             AstroObject THAstroObject = Locator.GetAstroObject(AstroObject.Name.TimberHearth);
             // Get the current active camera
@@ -704,9 +658,9 @@ namespace TimberHearthForest
 
         private void UpdateClouds()
         {
-            foreach (MeshRenderer rend in cloudRenderers)
+            for (int i = 0; i < cloudObjects.Count; i++)
             {
-                rend.material.mainTextureOffset = new Vector2(Time.time * 0.002f, 0);
+                cloudObjects[i]?.transform.GetComponent<MeshRenderer>()?.material?.mainTextureOffset = new Vector2(Time.time * cloudVelocities[i], 0);
             }
         }
 
@@ -714,86 +668,6 @@ namespace TimberHearthForest
         {
             // Compute the dot product between vector a and b
             return (a.x * b.x + a.y * b.y + a.z * b.z);
-        }
-
-        private Mesh InvertMesh(Mesh original)
-        {
-            Mesh mesh = Instantiate(original);
-
-            // Flip normals
-            for (int i = 0; i < mesh.normals.Length; i++) mesh.normals[i] = -mesh.normals[i];
-
-            // Flip triangle winding
-            for (int i = 0; i < mesh.subMeshCount; i++)
-            {
-                int[] triangles = mesh.GetTriangles(i);
-
-                for (int j = 0; j < triangles.Length; j += 3)
-                {
-                    // swap 0 and 1
-                    int temp = triangles[j];
-                    triangles[j] = triangles[j + 1];
-                    triangles[j + 1] = temp;
-                }
-
-                mesh.SetTriangles(triangles, i);
-            }
-
-            return mesh;
-        }
-
-        private Mesh CreateSphereMesh(int latitudeSegments, int longitudeSegments, float radius)
-        {
-            Mesh mesh = new Mesh();
-
-            List<Vector3> vertices = new List<Vector3>();
-            List<Vector3> normals = new List<Vector3>();
-            List<Vector2> uvs = new List<Vector2>();
-            List<int> triangles = new List<int>();
-
-            for (int lat = 0; lat <= latitudeSegments; lat++)
-            {
-                float a1 = Mathf.PI * lat / latitudeSegments;
-                float sin1 = Mathf.Sin(a1);
-                float cos1 = Mathf.Cos(a1);
-
-                for (int lon = 0; lon <= longitudeSegments; lon++)
-                {
-                    float a2 = 2 * Mathf.PI * lon / longitudeSegments;
-                    float sin2 = Mathf.Sin(a2);
-                    float cos2 = Mathf.Cos(a2);
-
-                    Vector3 pos = new Vector3(sin1 * cos2, cos1, sin1 * sin2) * radius;
-
-                    vertices.Add(pos);
-                    normals.Add(pos.normalized);
-                    uvs.Add(new Vector2((float)lon / longitudeSegments, (float)lat / latitudeSegments));
-                }
-            }
-
-            for (int lat = 0; lat < latitudeSegments; lat++)
-            {
-                for (int lon = 0; lon < longitudeSegments; lon++)
-                {
-                    int current = lat * (longitudeSegments + 1) + lon;
-                    int next = current + longitudeSegments + 1;
-
-                    triangles.Add(current);
-                    triangles.Add(next);
-                    triangles.Add(current + 1);
-
-                    triangles.Add(current + 1);
-                    triangles.Add(next);
-                    triangles.Add(next + 1);
-                }
-            }
-
-            mesh.SetVertices(vertices);
-            mesh.SetNormals(normals);
-            mesh.SetUVs(0, uvs);
-            mesh.SetTriangles(triangles, 0);
-
-            return mesh;
         }
 
     }
