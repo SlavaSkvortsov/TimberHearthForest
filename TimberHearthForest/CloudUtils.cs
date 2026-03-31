@@ -64,18 +64,20 @@ namespace TimberHearthForest
                 return;
             }
 
-            cloudMaterial.SetFloat("_AmbientStrength", isOutwardFacing ? 0.15f : 0.04f);
-            cloudMaterial.SetColor("_AmbientColor", new Color(1.0f, 1.0f, 1.0f, 1.0f));
+            Material mat = UnityEngine.Material.Instantiate(cloudMaterial);
 
-            cloudMaterial.SetFloat("_Metallic", 0.0f);
-            cloudMaterial.SetFloat("_Glossiness", 0.0f);
+            mat.SetFloat("_AmbientStrength", isOutwardFacing ? 0.1f: 0.05f);
+            mat.SetColor("_AmbientColor", new Color(1.0f, 1.0f, 1.0f, 1.0f));
 
-            cloudMaterial.SetFloat("_FresnelPower", isOutwardFacing ? 0.0f : 0.0f);
-            cloudMaterial.SetFloat("_FresnelFade", 8.0f);
-            cloudMaterial.SetFloat("_AlphaBoost", isOutwardFacing ? 3.0f : 1.5f);
+            mat.SetFloat("_Metallic", 0.0f);
+            mat.SetFloat("_Glossiness", 0.0f);
 
-            cloudMaterial.mainTexture = albedoMap;
-            cloudMaterial.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+            mat.SetFloat("_FresnelPower", isOutwardFacing ? 2.0f : 0.0f);
+            mat.SetFloat("_FresnelFade", isOutwardFacing ? 3.0f : 0.0f);
+            mat.SetFloat("_AlphaBoost", 1.0f);
+
+            mat.mainTexture = albedoMap;
+            mat.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
 
             /*var geyserStrips = new List<(int, int)>
             {
@@ -94,10 +96,10 @@ namespace TimberHearthForest
             }
             else
             {
-                cloudMaterial.SetTexture("_NormalTex", normalMap);
-                cloudMaterial.SetFloat("_NormalStrength", 0.25f);
+                mat.SetTexture("_NormalTex", normalMap);
+                mat.SetFloat("_NormalStrength", 0.5f);
                 // If the cloud faces towards space then the normal map should be inverted
-                if (isOutwardFacing) cloudMaterial.SetFloat("_NormalStrength", -0.25f);
+                if (isOutwardFacing) mat.SetFloat("_NormalStrength", -1.0f);
             }
 
             // Create the cloud sphere
@@ -117,7 +119,7 @@ namespace TimberHearthForest
             cloudSphere.transform.localScale = Vector3.one * cloudRadius;
 
             MeshRenderer cloudRenderer = cloudSphere.GetComponent<MeshRenderer>();
-            cloudRenderer.material = cloudMaterial;
+            cloudRenderer.material = mat;
             cloudRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             cloudRenderer.receiveShadows = true;
 
