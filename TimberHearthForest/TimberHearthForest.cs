@@ -670,7 +670,7 @@ namespace TimberHearthForest
             if (activeCamTransform != null && timberHearthTransform != null)
             {
                 playerTHDistance = Vector3.Distance(activeCamTransform.position, timberHearthTransform.position);
-                playerTHDistance -= CloudUtils.MAX_CLOUD_SPHERE_RADIUS;
+                playerTHDistance -= CloudUtils.MAX_CLOUD_SPHERE_RADIUS - 10.0f;
                 playerTHDistance = Mathf.Clamp01(playerTHDistance * 0.01f);
             }
 
@@ -686,6 +686,14 @@ namespace TimberHearthForest
                     {
                         cloudMaterial?.color = new Color(1.0f, 1.0f, 1.0f, 1.0f - playerTHDistance);
                     }
+
+                    // When the player is below the cloud layer, then each of the 3 cloud layers are spaced apart
+                    float baseScale = CloudUtils.MAX_CLOUD_SPHERE_RADIUS;
+                    float groundScale = baseScale + Mathf.Floor(i / 2.0f) * 15.0f;
+
+                    float scaleWithDistance = Mathf.Lerp(groundScale, baseScale, playerTHDistance);
+
+                    cloudObjects[i]?.transform.localScale = Vector3.one * scaleWithDistance;
                 }
                 catch
                 {

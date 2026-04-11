@@ -106,7 +106,7 @@ namespace TimberHearthForest
             GameObject cloudSphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             cloudSphere.transform.SetParent(cloudHolder.transform, false);
 
-            cloudSphere.GetComponent<MeshFilter>()?.mesh = CreateSphereMesh(32, 32, 1.0f);
+            cloudSphere.GetComponent<MeshFilter>()?.mesh = CreateSphereMesh(64, 64, 1.0f);
 
             // Invert the normals of the mesh if the cloud faces outwards towards space
             if (isOutwardFacing) cloudSphere.GetComponent<MeshFilter>().mesh = InvertMesh(cloudSphere.GetComponent<MeshFilter>().mesh);
