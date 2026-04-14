@@ -53,7 +53,9 @@ namespace TimberHearthForest
                         return;
                 }
 
-                AssetBundle bundle = AssetBundle.LoadFromFile(modFolderPath + "Assets/" + platformFolder + "/cloudbundle");
+                string bundlePath = Path.Combine(modFolderPath, "Assets", platformFolder, "cloudbundle");
+                AssetBundle bundle = AssetBundle.LoadFromFile(bundlePath);
+
                 cloudMaterial = bundle.LoadAsset<Material>("CloudMaterial");
             }
             catch (Exception e)
@@ -69,7 +71,8 @@ namespace TimberHearthForest
             if (MAX_CLOUD_SPHERE_RADIUS < cloudRadius) MAX_CLOUD_SPHERE_RADIUS = cloudRadius;
 
             // Load the cloud texture
-            Texture2D albedoMap = FileLoadingUtils.LoadTexture(modFolderPath + "Assets/" + textureName + ".png", modConsole);
+            string albedoTexturePath = Path.Combine(modFolderPath, "Assets", textureName + ".png");
+            Texture2D albedoMap = FileLoadingUtils.LoadTexture(albedoTexturePath, modConsole);
 
             if (albedoMap == null)
             {
@@ -107,7 +110,8 @@ namespace TimberHearthForest
             };*/
 
             // Load the cloud normal texture
-            Texture2D normalMap = FileLoadingUtils.LoadTexture(modFolderPath + "Assets/" + normalName + ".png", modConsole);
+            string normalTexturePath = Path.Combine(modFolderPath, "Assets", normalName + ".png");
+            Texture2D normalMap = FileLoadingUtils.LoadTexture(normalTexturePath, modConsole);
 
             if (normalMap == null)
             {

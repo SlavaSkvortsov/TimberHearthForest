@@ -83,7 +83,8 @@ namespace TimberHearthForest
             // Loaded into Solar System!
 
             // Load tree data and spawn trees
-            string treeSpawnDataPath = ModHelper.Manifest.ModFolderPath + "Assets/treeSpawnData.json";
+            //string treeSpawnDataPath = ModHelper.Manifest.ModFolderPath + "Assets/treeSpawnData.json";
+            string treeSpawnDataPath = Path.Combine(ModHelper.Manifest.ModFolderPath, "Assets", "treeSpawnData.json");
             LoadAndSpawnProps(treeSpawnDataPath);
         }
 
