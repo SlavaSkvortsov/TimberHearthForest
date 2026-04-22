@@ -46,6 +46,9 @@ namespace TimberHearthForest
         private const string ExtraTreesPerTreeScaleIdle = "Idle";
         private const string ExtraTreesPerTreeScaleRandomize = "Randomize (1 to 14 each)";
         private string _lastExtraTreesPerTreeScaleMenuValue = ExtraTreesPerTreeScaleIdle;
+        private const string ExtraTreesResetGrowthIdle = "Idle";
+        private const string ExtraTreesResetGrowthRun = "Reset to saplings (min size, grow again)";
+        private string _lastExtraTreesResetGrowthMenuValue = ExtraTreesResetGrowthIdle;
 
         private List<GameObject> spawnedGrass = new List<GameObject>();
 
@@ -135,6 +138,7 @@ namespace TimberHearthForest
             SyncExtraTreesGrowthFromConfig(config);
             SyncExtraTreesGlobalScaleFromConfig(config);
             SyncExtraTreesPerTreeScaleActionFromConfig(config);
+            SyncExtraTreesResetGrowthActionFromConfig(config);
         }
 
         private void LoadAndSpawnProps(string spawnDataFileLoc)
@@ -638,6 +642,39 @@ namespace TimberHearthForest
                 return;
             for (int i = 0; i < spawnedTrees.Count; i++)
                 _treeKRandomUniformScales[i] = UnityEngine.Random.Range(KRandomizeScaleMin, KRandomizeScaleMax);
+        }
+
+        private void SyncExtraTreesResetGrowthActionFromConfig(IModConfig config)
+        {
+            string action;
+            try
+            {
+                action = config.GetSettingsValue<string>("extraTreesResetGrowthAction");
+            }
+            catch
+            {
+                action = ExtraTreesResetGrowthIdle;
+            }
+
+            if (action == ExtraTreesResetGrowthRun
+                && _lastExtraTreesResetGrowthMenuValue != ExtraTreesResetGrowthRun)
+            {
+                ResetExtraTreesToSaplings();
+            }
+
+            _lastExtraTreesResetGrowthMenuValue = action;
+        }
+
+        private void ResetExtraTreesToSaplings()
+        {
+            if (spawnedTrees == null || spawnedTrees.Count == 0
+                || _treeMaturity01 == null || _treeMaturity01.Count != spawnedTrees.Count)
+                return;
+
+            for (int i = 0; i < _treeMaturity01.Count; i++)
+                _treeMaturity01[i] = 0f;
+
+            RefreshModTreeVisualScales();
         }
 
         private void RegenerateModTreeGrowthRates()

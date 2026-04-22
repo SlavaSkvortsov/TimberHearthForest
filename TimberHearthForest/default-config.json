@@ -124,6 +124,16 @@
         "Randomize (1 to 14 each)"
       ],
       "tooltip": "Choose Randomize once to roll a new random size factor per tree, then switch back to Idle if you want to randomize again later."
+    },
+    "extraTreesResetGrowthAction": {
+      "title": "Restart growth from saplings",
+      "type": "selector",
+      "value": "Idle",
+      "options": [
+        "Idle",
+        "Reset to saplings (min size, grow again)"
+      ],
+      "tooltip": "Choose Reset once to set all extra trees back to minimum growth (sapling size). Switch back to Idle before using Reset again."
     }
 
   }
