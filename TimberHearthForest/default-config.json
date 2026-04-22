@@ -79,6 +79,51 @@
         "Disabled"
       ],
       "tooltip": "When enabled trees which are hidden from the camera's view are disabled"
+    },
+    "extraTreesGrowthSeparator": {
+      "type": "separator"
+    },
+    "extraTreesGrowthIntensity": {
+      "title": "Extra Trees Growth Speed",
+      "type": "slider",
+      "min": 0,
+      "max": 2,
+      "value": 0,
+      "tooltip": "0 = paused. Higher values grow mod trees toward full size faster (each tree still has its own random rate within the min/max below)."
+    },
+    "extraTreesGrowthRateMin": {
+      "title": "Extra Trees Growth Rate Min",
+      "type": "slider",
+      "min": 0.02,
+      "max": 1,
+      "value": 0.04,
+      "tooltip": "Minimum random maturity-per-second for each mod tree (re-rolls all tree rates when min or max changes)."
+    },
+    "extraTreesGrowthRateMax": {
+      "title": "Extra Trees Growth Rate Max",
+      "type": "slider",
+      "min": 0.05,
+      "max": 2,
+      "value": 0.42,
+      "tooltip": "Maximum random maturity-per-second for each mod tree (re-rolls all tree rates when min or max changes)."
+    },
+    "extraTreesGlobalScale": {
+      "title": "Extra Trees Overall Scale",
+      "type": "slider",
+      "min": 0.1,
+      "max": 10,
+      "value": 1,
+      "tooltip": "Uniform scale multiplier for all mod trees (saplings and full size)."
+    },
+    "extraTreesPerTreeScaleAction": {
+      "title": "Per-tree random size (1 to 14)",
+      "type": "selector",
+      "value": "Idle",
+      "options": [
+        "Idle",
+        "Randomize (1 to 14 each)"
+      ],
+      "tooltip": "Choose Randomize once to roll a new random size factor per tree, then switch back to Idle if you want to randomize again later."
     }
 
   }
