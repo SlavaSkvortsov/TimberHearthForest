@@ -50,6 +50,7 @@ namespace TimberHearthForest
 
         private List<GameObject> cloudObjects = new List<GameObject>();
         private List<float> cloudVelocities = new List<float>();
+        private bool _cloudsHotkeyVisible = true;
 
         private GameObject THSatelliteObject;
 
@@ -194,6 +195,17 @@ namespace TimberHearthForest
 
         private void UpdateCloudDensity(string cloudDensityPreset)
         {
+            if (cloudObjects == null) return;
+
+            if (!_cloudsHotkeyVisible)
+            {
+                for (int i = 0; i < cloudObjects.Count; i++)
+                {
+                    cloudObjects[i]?.SetActive(false);
+                }
+                return;
+            }
+
             int cloudDensity = 0;
 
             switch (cloudDensityPreset)
@@ -547,8 +559,20 @@ namespace TimberHearthForest
             // Control whether each firefly group is currently visible
             UpdateFireflies();
 
+            UpdateCloudToggle();
+
             // Scroll the cloud textures
-            UpdateClouds();
+            if (_cloudsHotkeyVisible) UpdateClouds();
+        }
+
+        private void UpdateCloudToggle()
+        {
+            if (!Input.GetKeyDown(KeyCode.B)) return;
+            _cloudsHotkeyVisible = !_cloudsHotkeyVisible;
+
+            // Reapply config-driven cloud density when turning clouds back on.
+            string cloudDensityPreset = ModHelper.Config.GetSettingsValue<string>("cloudDensity");
+            UpdateCloudDensity(cloudDensityPreset);
         }
 
         private void UpdateTreeGrowth()
