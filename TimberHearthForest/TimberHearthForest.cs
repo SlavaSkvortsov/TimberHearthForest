@@ -30,6 +30,20 @@ namespace TimberHearthForest
         private Dictionary<Vector3Int, ForestSectorUtils.ForestSector> forestSectors = new Dictionary<Vector3Int, ForestSectorUtils.ForestSector>();
 
         private List<GameObject> spawnedTrees = new List<GameObject>();
+        private List<float> _treeTargetUniformScales = new List<float>();
+        private List<float> _treeMaturity01;
+        private List<float> _treeLGrowthRatesPerSecond;
+        private List<float> _treeKRandomUniformScales;
+        private const float TreeGrowthStartFraction = 0.02f;
+        private const float KRandomizeScaleMin = 1f;
+        private const float KRandomizeScaleMax = 14f;
+        private const float LGrowthRateMin = 0.04f;
+        private const float LGrowthRateMax = 0.42f;
+        private const float MinTreeScaleMultiplier = 0.1f;
+        private const float MaxTreeScaleMultiplier = 10f;
+        private const float TreeScaleKeyboardStep = 1.12f;
+        private float _treeScaleMultiplier = 1f;
+
         private List<GameObject> spawnedGrass = new List<GameObject>();
 
         private List<ParticleSystem> spawnedFireflies = new List<ParticleSystem>();
@@ -94,10 +108,6 @@ namespace TimberHearthForest
             // Update the tree density
             string treeDensityPreset = config.GetSettingsValue<string>("treeDensity");
             UpdatePropDensity(treeDensityPreset, "tree");
-
-            // Update whether tree colliders are enabled
-            bool treeCollidersEnabled = config.GetSettingsValue<string>("treeCollidersEnabled") == "Enabled";
-            ToggleTreeHitboxes(treeCollidersEnabled);
 
             // Update sector based on whether the sector optimisation is enabled
             forestSectorOptimisationEnabled = ModHelper.Config.GetSettingsValue<string>("treeOcclusionOptimisation") == "Enabled";
@@ -210,6 +220,11 @@ namespace TimberHearthForest
 
             // Clear the stored trees, grass tufts and particle systems
             spawnedTrees = new List<GameObject>();
+            _treeTargetUniformScales = new List<float>();
+            _treeMaturity01 = new List<float>();
+            _treeKRandomUniformScales = new List<float>();
+            _treeLGrowthRatesPerSecond = null;
+            _treeScaleMultiplier = 1f;
             spawnedGrass = new List<GameObject>();
 
             spawnedFireflies = new List<ParticleSystem>();
@@ -316,23 +331,20 @@ namespace TimberHearthForest
                 );
 
                 float randomScale = UnityEngine.Random.Range(0.7f, 1.4f);
+                _treeTargetUniformScales.Add(randomScale);
+                _treeMaturity01.Add(0f);
+                _treeKRandomUniformScales.Add(1f);
 
-                // Set position, rotation and scale
+                // Set position, rotation and scale (trees start as saplings; hold L with rolled rates to grow)
                 treeClone.transform.position = detailWorldCoords;
                 treeClone.transform.localRotation = Quaternion.Euler(detail.rotation.x + randOffsets.x, detail.rotation.y + randOffsets.y, detail.rotation.z + randOffsets.z);
-                treeClone.transform.localScale = new Vector3(randomScale, randomScale, randomScale);
+                float saplingScale = randomScale * TreeGrowthStartFraction * _treeScaleMultiplier;
+                treeClone.transform.localScale = new Vector3(saplingScale, saplingScale, saplingScale);
 
                 foreach (var tracker in treeClone.GetComponentsInChildren<ShapeVisibilityTracker>(true))
                 {
                     DestroyImmediate(tracker);
                 }
-
-                // Add a collider to the trees
-                CapsuleCollider coll = treeClone.AddComponent<CapsuleCollider>();
-                coll.enabled = false;
-                coll.radius = 0.35f;
-                coll.height = 20.0f;
-                coll.center = Vector3.up * 7.0f;
 
                 spawnedTrees.Add(treeClone);
 
@@ -357,7 +369,8 @@ namespace TimberHearthForest
                 grassClone.transform.localRotation = Quaternion.Euler(detail.rotation.x, detail.rotation.y, detail.rotation.z);
                 grassClone.transform.localScale = new Vector3(randomScale, randomScale, randomScale);
 
-                grassClone.GetComponent<Renderer>()?.enabled = true;
+                Renderer grassRenderer = grassClone.GetComponent<Renderer>();
+                if (grassRenderer != null) grassRenderer.enabled = true;
 
                 spawnedGrass.Add(grassClone);
             }
@@ -367,10 +380,6 @@ namespace TimberHearthForest
             // Update the tree density
             string treeDensityPreset = ModHelper.Config.GetSettingsValue<string>("treeDensity");
             UpdatePropDensity(treeDensityPreset, "tree");
-
-            // Update the state of tree colliders
-            bool treeCollidersEnabled = ModHelper.Config.GetSettingsValue<string>("treeCollidersEnabled") == "Enabled";
-            ToggleTreeHitboxes(treeCollidersEnabled);
 
             // Update sector based on whether the sector optimisation is enabled
             forestSectorOptimisationEnabled = ModHelper.Config.GetSettingsValue<string>("treeOcclusionOptimisation") == "Enabled";
@@ -455,15 +464,6 @@ namespace TimberHearthForest
             spawnedFireflies.Add(ps);
         }
 
-        private void ToggleTreeHitboxes(bool enabled)
-        {
-            // Loop over each tree and toggle its hitbox
-            foreach (GameObject tree in spawnedTrees)
-            {
-                tree.GetComponent<CapsuleCollider>()?.enabled = enabled;
-            } 
-        }
-
         private void UpdatePropDensity(string densityDescriptor, string spawnType)
         {
             if (spawnedTrees == null && spawnType == "tree")
@@ -536,17 +536,91 @@ namespace TimberHearthForest
 
         public void Update()
         {
-            // Hide trees and grass which are far away and disable far away colliders to help improve performance
+            // Hide trees and grass which are far away to help improve performance
             // Starting Benchmark (No Mod):  ~100fps on planet, ~80fps off planet
             // No Optimisation Benchmark: ~60fps on planet, ~50fps off planet
             // Optimisation Benchmark: ~80fps on planet, ~60fps off planet
             UpdateSectors();
+
+            UpdateTreeGrowth();
 
             // Control whether each firefly group is currently visible
             UpdateFireflies();
 
             // Scroll the cloud textures
             UpdateClouds();
+        }
+
+        private void UpdateTreeGrowth()
+        {
+            if (spawnedTrees == null || spawnedTrees.Count == 0
+                || _treeTargetUniformScales.Count != spawnedTrees.Count
+                || _treeMaturity01 == null || _treeMaturity01.Count != spawnedTrees.Count
+                || _treeKRandomUniformScales == null || _treeKRandomUniformScales.Count != spawnedTrees.Count)
+                return;
+
+            if (Locator.GetPlayerBody() == null)
+                return;
+
+            bool multiplierChanged = false;
+            if (Input.GetKeyDown(KeyCode.O))
+            {
+                _treeScaleMultiplier = Mathf.Max(MinTreeScaleMultiplier, _treeScaleMultiplier / TreeScaleKeyboardStep);
+                multiplierChanged = true;
+            }
+            if (Input.GetKeyDown(KeyCode.P))
+            {
+                _treeScaleMultiplier = Mathf.Min(MaxTreeScaleMultiplier, _treeScaleMultiplier * TreeScaleKeyboardStep);
+                multiplierChanged = true;
+            }
+
+            if (Input.GetKeyDown(KeyCode.L))
+            {
+                _treeLGrowthRatesPerSecond = new List<float>(spawnedTrees.Count);
+                for (int i = 0; i < spawnedTrees.Count; i++)
+                {
+                    _treeLGrowthRatesPerSecond.Add(UnityEngine.Random.Range(LGrowthRateMin, LGrowthRateMax));
+                }
+            }
+
+            bool kRandomizeScales = false;
+            if (Input.GetKeyDown(KeyCode.K))
+            {
+                for (int i = 0; i < spawnedTrees.Count; i++)
+                {
+                    _treeKRandomUniformScales[i] = UnityEngine.Random.Range(KRandomizeScaleMin, KRandomizeScaleMax);
+                }
+                kRandomizeScales = true;
+            }
+
+            if (Input.GetKey(KeyCode.L)
+                && _treeLGrowthRatesPerSecond != null && _treeLGrowthRatesPerSecond.Count == spawnedTrees.Count)
+            {
+                float dt = Time.deltaTime;
+                for (int i = 0; i < spawnedTrees.Count; i++)
+                {
+                    _treeMaturity01[i] = Mathf.Min(1f, _treeMaturity01[i] + _treeLGrowthRatesPerSecond[i] * dt);
+                }
+            }
+
+            if (multiplierChanged || kRandomizeScales || (Input.GetKey(KeyCode.L) && _treeLGrowthRatesPerSecond != null))
+            {
+                RefreshModTreeVisualScales();
+            }
+        }
+
+        private void RefreshModTreeVisualScales()
+        {
+            for (int i = 0; i < spawnedTrees.Count; i++)
+            {
+                float u = Mathf.Clamp01(_treeMaturity01[i]);
+                float b = _treeTargetUniformScales[i] * _treeKRandomUniformScales[i];
+                float m = _treeScaleMultiplier;
+                float sm = b * TreeGrowthStartFraction * m;
+                float lg = b * m;
+                float s = Mathf.Lerp(sm, lg, u);
+                spawnedTrees[i].transform.localScale = new Vector3(s, s, s);
+            }
         }
 
         private void UpdateSectors()
@@ -679,13 +753,19 @@ namespace TimberHearthForest
             {
                 try
                 {
-                    Material cloudMaterial = cloudObjects[i]?.transform.GetComponent<MeshRenderer>()?.material;
-                    cloudMaterial?.mainTextureOffset = new Vector2(Time.time * cloudVelocities[i], 0);
+                    GameObject cloudObj = cloudObjects[i];
+                    if (cloudObj == null) continue;
 
-                    // Only show in facing clouds when the player is in the atmosphere
-                    if (cloudObjects[i].name.Contains("_In"))
+                    Material cloudMaterial = cloudObj.transform.GetComponent<MeshRenderer>()?.material;
+                    if (cloudMaterial != null)
                     {
-                        cloudMaterial?.color = new Color(1.0f, 1.0f, 1.0f, 1.0f - playerTHDistance);
+                        cloudMaterial.mainTextureOffset = new Vector2(Time.time * cloudVelocities[i], 0);
+
+                        // Only show in facing clouds when the player is in the atmosphere
+                        if (cloudObj.name.Contains("_In"))
+                        {
+                            cloudMaterial.color = new Color(1.0f, 1.0f, 1.0f, 1.0f - playerTHDistance);
+                        }
                     }
 
                     // When the player is below the cloud layer, then each of the 3 cloud layers are spaced apart
@@ -694,7 +774,7 @@ namespace TimberHearthForest
 
                     float scaleWithDistance = Mathf.Lerp(groundScale, baseScale, playerTHDistance);
 
-                    cloudObjects[i]?.transform.localScale = Vector3.one * scaleWithDistance;
+                    cloudObj.transform.localScale = Vector3.one * scaleWithDistance;
                 }
                 catch
                 {

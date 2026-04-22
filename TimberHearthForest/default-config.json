@@ -40,19 +40,6 @@
       ],
       "tooltip": "Controls the amount of clouds around Timber Hearth"
     },
-    "hitboxSeparator": {
-      "type": "separator"
-    },
-    "treeCollidersEnabled": {
-      "title": "Tree Collision",
-      "type": "selector",
-      "value": "Enabled",
-      "options": [
-        "Enabled",
-        "Disabled"
-      ],
-      "tooltip": "Toggles on/off tree colliders"
-    },
     "fireflySeparator": {
       "type": "separator"
     },

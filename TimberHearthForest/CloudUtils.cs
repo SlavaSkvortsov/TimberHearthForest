@@ -138,13 +138,15 @@ namespace TimberHearthForest
             GameObject cloudSphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             cloudSphere.transform.SetParent(cloudHolder.transform, false);
 
-            cloudSphere.GetComponent<MeshFilter>()?.mesh = CreateSphereMesh(64, 64, 1.0f);
+            MeshFilter cloudMeshFilter = cloudSphere.GetComponent<MeshFilter>();
+            if (cloudMeshFilter != null) cloudMeshFilter.mesh = CreateSphereMesh(64, 64, 1.0f);
 
             // Invert the normals of the mesh if the cloud faces outwards towards space
             if (isOutwardFacing) cloudSphere.GetComponent<MeshFilter>().mesh = InvertMesh(cloudSphere.GetComponent<MeshFilter>().mesh);
 
             cloudSphere.name = isOutwardFacing ? "TH_Clouds_Out" : "TH_Clouds_In";
-            cloudSphere.GetComponent<SphereCollider>()?.enabled = false;
+            SphereCollider cloudSphereCollider = cloudSphere.GetComponent<SphereCollider>();
+            if (cloudSphereCollider != null) cloudSphereCollider.enabled = false;
 
             cloudSphere.transform.localPosition = Vector3.zero;
             cloudSphere.transform.localRotation = Quaternion.identity;
