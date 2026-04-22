@@ -78,9 +78,9 @@ if not exist "%SRC_FILE%" (
 copy /Y "%SRC_FILE%" "%DST_FILE%" >nul
 if errorlevel 1 (
   echo [ERROR] Copy failed:
-  echo        "%SRC_FILE%"
-  echo        -> "%DST_FILE%"
+  echo        from "%SRC_FILE%"
+  echo        to   "%DST_FILE%"
 ) else (
-  echo [OK] "%SRC_FILE%" -> "%DST_FILE%"
+  echo [OK] Copied from "%SRC_FILE%" to "%DST_FILE%"
 )
 goto :eof
