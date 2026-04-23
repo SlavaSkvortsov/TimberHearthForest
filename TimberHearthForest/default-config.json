@@ -83,29 +83,35 @@
     "extraTreesGrowthSeparator": {
       "type": "separator"
     },
+    "extraTreesGrowthPercent": {
+      "title": "Extra Trees Current Growth",
+      "type": "slider",
+      "min": 0,
+      "max": 100,
+      "value": 0,
+      "tooltip": "0% = smallest (saplings), 100% = full size for the current max-size mode. Auto-growth moves this while the multiplier and speed are above zero; you can also drag it manually."
+    },
+    "extraTreesGrowthSpeedPercentPerSec": {
+      "title": "Extra Trees Auto-Growth Speed",
+      "type": "slider",
+      "min": 0,
+      "max": 30,
+      "value": 5,
+      "tooltip": "How many percentage points per second are added to Current Growth while auto-growth is active (multiplier > 0)."
+    },
     "extraTreesGrowthIntensity": {
-      "title": "Extra Trees Growth Speed",
+      "title": "Extra Trees Auto-Growth Multiplier",
       "type": "slider",
       "min": 0,
       "max": 2,
       "value": 0,
-      "tooltip": "0 = paused. Higher values grow mod trees toward full size faster (each tree still has its own random rate within the min/max below)."
+      "tooltip": "0 = auto-growth paused. Multiplies Auto-Growth Speed when advancing the Current Growth slider."
     },
-    "extraTreesGrowthRateMin": {
-      "title": "Extra Trees Growth Rate Min",
-      "type": "slider",
-      "min": 0.02,
-      "max": 1,
-      "value": 0.04,
-      "tooltip": "Minimum random maturity-per-second for each mod tree (re-rolls all tree rates when min or max changes)."
-    },
-    "extraTreesGrowthRateMax": {
-      "title": "Extra Trees Growth Rate Max",
-      "type": "slider",
-      "min": 0.05,
-      "max": 2,
-      "value": 0.42,
-      "tooltip": "Maximum random maturity-per-second for each mod tree (re-rolls all tree rates when min or max changes)."
+    "extraTreesRandomPerTreeMax": {
+      "title": "Random max size per tree (1–14)",
+      "type": "toggle",
+      "value": false,
+      "tooltip": "Off: same max size for every tree (only the overall scale slider applies). On: each tree rolls its own max size factor between 1 and 14; use Randomize below to re-roll."
     },
     "extraTreesGlobalScale": {
       "title": "Extra Trees Overall Scale",
@@ -123,7 +129,7 @@
         "Idle",
         "Randomize (1 to 14 each)"
       ],
-      "tooltip": "Choose Randomize once to roll a new random size factor per tree, then switch back to Idle if you want to randomize again later."
+      "tooltip": "Only applies when \"Random max size per tree\" is on. Choose Randomize once to roll a new random size factor per tree, then switch back to Idle if you want to randomize again later."
     },
     "extraTreesResetGrowthAction": {
       "title": "Restart growth from saplings",

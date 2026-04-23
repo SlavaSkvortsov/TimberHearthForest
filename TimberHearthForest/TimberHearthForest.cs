@@ -31,21 +31,23 @@ namespace TimberHearthForest
 
         private List<GameObject> spawnedTrees = new List<GameObject>();
         private List<float> _treeTargetUniformScales = new List<float>();
-        private List<float> _treeMaturity01;
-        private List<float> _treeLGrowthRatesPerSecond;
         private List<float> _treeKRandomUniformScales;
         private const float TreeGrowthStartFraction = 0.02f;
         private const float KRandomizeScaleMin = 1f;
         private const float KRandomizeScaleMax = 14f;
+        private float _forestGrowthPercent;
+        private float _extraTreesGrowthSpeedPercentPerSec;
         private float _extraTreesGrowthIntensity;
-        private float _configuredGrowthRateMin = 0.04f;
-        private float _configuredGrowthRateMax = 0.42f;
+        private bool _writingForestGrowthPercentToConfig;
+        private float _lastForestGrowthConfigPushUnscaledTime = -999f;
+        private const float ForestGrowthConfigPushMinInterval = 0.12f;
         private const float MinTreeScaleMultiplier = 0.1f;
         private const float MaxTreeScaleMultiplier = 10f;
         private float _treeScaleMultiplier = 1f;
         private const string ExtraTreesPerTreeScaleIdle = "Idle";
         private const string ExtraTreesPerTreeScaleRandomize = "Randomize (1 to 14 each)";
         private string _lastExtraTreesPerTreeScaleMenuValue = ExtraTreesPerTreeScaleIdle;
+        private bool _extraTreesUseRandomCap;
         private const string ExtraTreesResetGrowthIdle = "Idle";
         private const string ExtraTreesResetGrowthRun = "Reset to saplings (min size, grow again)";
         private string _lastExtraTreesResetGrowthMenuValue = ExtraTreesResetGrowthIdle;
@@ -135,6 +137,7 @@ namespace TimberHearthForest
             string cloudDensityPreset = config.GetSettingsValue<string>("cloudDensity");
             UpdateCloudDensity(cloudDensityPreset);
 
+            SyncExtraTreesCapModeFromConfig(config);
             SyncExtraTreesGrowthFromConfig(config);
             SyncExtraTreesGlobalScaleFromConfig(config);
             SyncExtraTreesPerTreeScaleActionFromConfig(config);
@@ -234,9 +237,7 @@ namespace TimberHearthForest
             // Clear the stored trees, grass tufts and particle systems
             spawnedTrees = new List<GameObject>();
             _treeTargetUniformScales = new List<float>();
-            _treeMaturity01 = new List<float>();
             _treeKRandomUniformScales = new List<float>();
-            _treeLGrowthRatesPerSecond = null;
             spawnedGrass = new List<GameObject>();
 
             spawnedFireflies = new List<ParticleSystem>();
@@ -344,7 +345,6 @@ namespace TimberHearthForest
 
                 float randomScale = UnityEngine.Random.Range(0.7f, 1.4f);
                 _treeTargetUniformScales.Add(randomScale);
-                _treeMaturity01.Add(0f);
                 _treeKRandomUniformScales.Add(1f);
 
                 // Set position, rotation and scale (trees start as saplings; use mod menu growth sliders to grow)
@@ -409,7 +409,12 @@ namespace TimberHearthForest
             string fireflyDensityPreset = ModHelper.Config.GetSettingsValue<string>("fireflyDensity");
             UpdatePropDensity(fireflyDensityPreset, "firefly");
 
-            RegenerateModTreeGrowthRates();
+            IModConfig cfg = ModHelper.Config;
+            SyncExtraTreesCapModeFromConfig(cfg);
+            SyncExtraTreesGrowthFromConfig(cfg);
+            SyncExtraTreesGlobalScaleFromConfig(cfg);
+            if (spawnedTrees.Count > 0)
+                RefreshModTreeVisualScales();
         }
 
         private void OnEnterTimberHearth(SectorDetector detector)
@@ -577,27 +582,44 @@ namespace TimberHearthForest
             }
         }
 
-        private void SyncExtraTreesGrowthFromConfig(IModConfig config)
+        private void SyncExtraTreesCapModeFromConfig(IModConfig config)
         {
-            _extraTreesGrowthIntensity = Mathf.Max(0f, ReadConfigSlider(config, "extraTreesGrowthIntensity", 0f));
-
-            float newMin = ReadConfigSlider(config, "extraTreesGrowthRateMin", 0.04f);
-            float newMax = ReadConfigSlider(config, "extraTreesGrowthRateMax", 0.42f);
-            if (newMin > newMax)
+            bool wantRandom;
+            try
             {
-                float t = newMin;
-                newMin = newMax;
-                newMax = t;
+                wantRandom = config.GetSettingsValue<bool>("extraTreesRandomPerTreeMax");
+            }
+            catch
+            {
+                wantRandom = false;
+            }
+            bool modeChanged = wantRandom != _extraTreesUseRandomCap;
+            _extraTreesUseRandomCap = wantRandom;
+
+            if (!wantRandom && spawnedTrees != null && _treeKRandomUniformScales != null
+                && _treeKRandomUniformScales.Count == spawnedTrees.Count)
+            {
+                for (int i = 0; i < _treeKRandomUniformScales.Count; i++)
+                    _treeKRandomUniformScales[i] = 1f;
             }
 
-            bool rangeChanged = Mathf.Abs(newMin - _configuredGrowthRateMin) > 0.00001f
-                || Mathf.Abs(newMax - _configuredGrowthRateMax) > 0.00001f;
+            if (modeChanged && spawnedTrees != null && spawnedTrees.Count > 0)
+                RefreshModTreeVisualScales();
+        }
 
-            _configuredGrowthRateMin = newMin;
-            _configuredGrowthRateMax = newMax;
+        private void SyncExtraTreesGrowthFromConfig(IModConfig config)
+        {
+            if (!_writingForestGrowthPercentToConfig)
+            {
+                float newPct = Mathf.Clamp(ReadConfigSlider(config, "extraTreesGrowthPercent", 0f), 0f, 100f);
+                bool pctChanged = Mathf.Abs(newPct - _forestGrowthPercent) > 0.00001f;
+                _forestGrowthPercent = newPct;
+                if (pctChanged && spawnedTrees != null && spawnedTrees.Count > 0)
+                    RefreshModTreeVisualScales();
+            }
 
-            if (rangeChanged && spawnedTrees != null && spawnedTrees.Count > 0)
-                RegenerateModTreeGrowthRates();
+            _extraTreesGrowthSpeedPercentPerSec = Mathf.Max(0f, ReadConfigSlider(config, "extraTreesGrowthSpeedPercentPerSec", 5f));
+            _extraTreesGrowthIntensity = Mathf.Max(0f, ReadConfigSlider(config, "extraTreesGrowthIntensity", 0f));
         }
 
         private void SyncExtraTreesGlobalScaleFromConfig(IModConfig config)
@@ -625,7 +647,8 @@ namespace TimberHearthForest
                 action = ExtraTreesPerTreeScaleIdle;
             }
 
-            if (action == ExtraTreesPerTreeScaleRandomize
+            if (_extraTreesUseRandomCap
+                && action == ExtraTreesPerTreeScaleRandomize
                 && _lastExtraTreesPerTreeScaleMenuValue != ExtraTreesPerTreeScaleRandomize)
             {
                 ApplyPerTreeRandomScales();
@@ -638,7 +661,8 @@ namespace TimberHearthForest
 
         private void ApplyPerTreeRandomScales()
         {
-            if (spawnedTrees == null || spawnedTrees.Count == 0 || _treeKRandomUniformScales == null)
+            if (!_extraTreesUseRandomCap
+                || spawnedTrees == null || spawnedTrees.Count == 0 || _treeKRandomUniformScales == null)
                 return;
             for (int i = 0; i < spawnedTrees.Count; i++)
                 _treeKRandomUniformScales[i] = UnityEngine.Random.Range(KRandomizeScaleMin, KRandomizeScaleMax);
@@ -667,68 +691,70 @@ namespace TimberHearthForest
 
         private void ResetExtraTreesToSaplings()
         {
-            if (spawnedTrees == null || spawnedTrees.Count == 0
-                || _treeMaturity01 == null || _treeMaturity01.Count != spawnedTrees.Count)
-                return;
-
-            for (int i = 0; i < _treeMaturity01.Count; i++)
-                _treeMaturity01[i] = 0f;
-
-            RefreshModTreeVisualScales();
-        }
-
-        private void RegenerateModTreeGrowthRates()
-        {
             if (spawnedTrees == null || spawnedTrees.Count == 0)
                 return;
 
-            float lo = Mathf.Min(_configuredGrowthRateMin, _configuredGrowthRateMax);
-            float hi = Mathf.Max(_configuredGrowthRateMin, _configuredGrowthRateMax);
-            if (hi <= lo)
-                hi = lo + 0.01f;
+            _forestGrowthPercent = 0f;
+            PushForestGrowthPercentToConfig();
+            RefreshModTreeVisualScales();
+        }
 
-            _treeLGrowthRatesPerSecond = new List<float>(spawnedTrees.Count);
-            for (int i = 0; i < spawnedTrees.Count; i++)
-                _treeLGrowthRatesPerSecond.Add(UnityEngine.Random.Range(lo, hi));
+        private void PushForestGrowthPercentToConfig()
+        {
+            try
+            {
+                _writingForestGrowthPercentToConfig = true;
+                double rounded = Math.Round(_forestGrowthPercent, 3, MidpointRounding.AwayFromZero);
+                ModHelper.Config.SetSettingsValue("extraTreesGrowthPercent", rounded);
+            }
+            catch (Exception ex)
+            {
+                ModHelper.Console.WriteLine($"Could not write extraTreesGrowthPercent to config: {ex.Message}", MessageType.Warning);
+            }
+            finally
+            {
+                _writingForestGrowthPercentToConfig = false;
+            }
         }
 
         private void UpdateTreeGrowth()
         {
             if (spawnedTrees == null || spawnedTrees.Count == 0
                 || _treeTargetUniformScales.Count != spawnedTrees.Count
-                || _treeMaturity01 == null || _treeMaturity01.Count != spawnedTrees.Count
                 || _treeKRandomUniformScales == null || _treeKRandomUniformScales.Count != spawnedTrees.Count)
                 return;
 
             if (Locator.GetPlayerBody() == null)
                 return;
 
-            bool grewThisFrame = false;
-            if (_extraTreesGrowthIntensity > 0f
-                && _treeLGrowthRatesPerSecond != null && _treeLGrowthRatesPerSecond.Count == spawnedTrees.Count)
-            {
-                float dt = Time.deltaTime;
-                for (int i = 0; i < spawnedTrees.Count; i++)
-                {
-                    _treeMaturity01[i] = Mathf.Min(
-                        1f,
-                        _treeMaturity01[i] + _treeLGrowthRatesPerSecond[i] * _extraTreesGrowthIntensity * dt);
-                }
-                grewThisFrame = true;
-            }
+            if (_extraTreesGrowthIntensity <= 0f || _extraTreesGrowthSpeedPercentPerSec <= 0f)
+                return;
 
-            if (grewThisFrame)
+            float prev = _forestGrowthPercent;
+            float dt = Time.deltaTime;
+            _forestGrowthPercent = Mathf.Min(
+                100f,
+                prev + _extraTreesGrowthSpeedPercentPerSec * _extraTreesGrowthIntensity * dt);
+
+            if (Mathf.Abs(_forestGrowthPercent - prev) < 1e-5f)
+                return;
+
+            RefreshModTreeVisualScales();
+
+            if (Time.unscaledTime - _lastForestGrowthConfigPushUnscaledTime >= ForestGrowthConfigPushMinInterval)
             {
-                RefreshModTreeVisualScales();
+                _lastForestGrowthConfigPushUnscaledTime = Time.unscaledTime;
+                PushForestGrowthPercentToConfig();
             }
         }
 
         private void RefreshModTreeVisualScales()
         {
+            float u = Mathf.Clamp01(_forestGrowthPercent / 100f);
             for (int i = 0; i < spawnedTrees.Count; i++)
             {
-                float u = Mathf.Clamp01(_treeMaturity01[i]);
-                float b = _treeTargetUniformScales[i] * _treeKRandomUniformScales[i];
+                float k = _extraTreesUseRandomCap ? _treeKRandomUniformScales[i] : 1f;
+                float b = _treeTargetUniformScales[i] * k;
                 float m = _treeScaleMultiplier;
                 float sm = b * TreeGrowthStartFraction * m;
                 float lg = b * m;
