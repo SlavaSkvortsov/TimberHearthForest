@@ -33,8 +33,8 @@ namespace TimberHearthForest
         private List<float> _treeTargetUniformScales = new List<float>();
         private List<float> _treeKRandomUniformScales;
         private const float TreeGrowthStartFraction = 0.02f;
-        private const float KRandomizeScaleMin = 1f;
-        private const float KRandomizeScaleMax = 14f;
+        private float _randomPerTreeKMin = 1f;
+        private float _randomPerTreeKMax = 14f;
         private float _forestGrowthPercent;
         private float _extraTreesGrowthSpeedPercentPerSec;
         private float _extraTreesGrowthIntensity;
@@ -45,9 +45,15 @@ namespace TimberHearthForest
         private const float MaxTreeScaleMultiplier = 10f;
         private float _treeScaleMultiplier = 1f;
         private const string ExtraTreesPerTreeScaleIdle = "Idle";
-        private const string ExtraTreesPerTreeScaleRandomize = "Randomize (1 to 14 each)";
+        private const string ExtraTreesPerTreeScaleRandomize = "Randomize each tree";
         private string _lastExtraTreesPerTreeScaleMenuValue = ExtraTreesPerTreeScaleIdle;
         private bool _extraTreesUseRandomCap;
+        private HashSet<int> _giantTreeIndices = new HashSet<int>();
+        private int _lastSyncedGiantCount = -1;
+        private bool _lastGiantShuffleToggle;
+        private float _giantSizeMultiplier = 15f;
+        private const float GiantSizeMultiplierMin = 10f;
+        private const float GiantSizeMultiplierMax = 30f;
         private const string ExtraTreesResetGrowthIdle = "Idle";
         private const string ExtraTreesResetGrowthRun = "Reset to saplings (min size, grow again)";
         private string _lastExtraTreesResetGrowthMenuValue = ExtraTreesResetGrowthIdle;
@@ -138,8 +144,10 @@ namespace TimberHearthForest
             UpdateCloudDensity(cloudDensityPreset);
 
             SyncExtraTreesCapModeFromConfig(config);
+            SyncExtraTreesRandomPerTreeRangeFromConfig(config);
             SyncExtraTreesGrowthFromConfig(config);
             SyncExtraTreesGlobalScaleFromConfig(config);
+            SyncExtraTreesGiantsFromConfig(config);
             SyncExtraTreesPerTreeScaleActionFromConfig(config);
             SyncExtraTreesResetGrowthActionFromConfig(config);
         }
@@ -238,6 +246,8 @@ namespace TimberHearthForest
             spawnedTrees = new List<GameObject>();
             _treeTargetUniformScales = new List<float>();
             _treeKRandomUniformScales = new List<float>();
+            _giantTreeIndices = new HashSet<int>();
+            _lastSyncedGiantCount = -1;
             spawnedGrass = new List<GameObject>();
 
             spawnedFireflies = new List<ParticleSystem>();
@@ -411,8 +421,10 @@ namespace TimberHearthForest
 
             IModConfig cfg = ModHelper.Config;
             SyncExtraTreesCapModeFromConfig(cfg);
+            SyncExtraTreesRandomPerTreeRangeFromConfig(cfg);
             SyncExtraTreesGrowthFromConfig(cfg);
             SyncExtraTreesGlobalScaleFromConfig(cfg);
+            SyncExtraTreesGiantsFromConfig(cfg);
             if (spawnedTrees.Count > 0)
                 RefreshModTreeVisualScales();
         }
@@ -607,6 +619,38 @@ namespace TimberHearthForest
                 RefreshModTreeVisualScales();
         }
 
+        private void SyncExtraTreesRandomPerTreeRangeFromConfig(IModConfig config)
+        {
+            float rawLo = ReadConfigSlider(config, "extraTreesRandomPerTreeKMin", 1f);
+            float rawHi = ReadConfigSlider(config, "extraTreesRandomPerTreeKMax", 14f);
+            float lo = Mathf.Max(0f, rawLo);
+            float hi = Mathf.Max(0f, rawHi);
+            if (hi < lo)
+            {
+                float t = lo;
+                lo = hi;
+                hi = t;
+            }
+
+            if (hi <= lo)
+                hi = lo + 0.01f;
+
+            bool changed = Mathf.Abs(lo - _randomPerTreeKMin) > 1e-5f
+                || Mathf.Abs(hi - _randomPerTreeKMax) > 1e-5f;
+            _randomPerTreeKMin = lo;
+            _randomPerTreeKMax = hi;
+
+            if (!changed
+                || !_extraTreesUseRandomCap
+                || spawnedTrees == null || spawnedTrees.Count == 0
+                || _treeKRandomUniformScales == null || _treeKRandomUniformScales.Count != spawnedTrees.Count)
+                return;
+
+            for (int i = 0; i < spawnedTrees.Count; i++)
+                _treeKRandomUniformScales[i] = Mathf.Clamp(_treeKRandomUniformScales[i], lo, hi);
+            RefreshModTreeVisualScales();
+        }
+
         private void SyncExtraTreesGrowthFromConfig(IModConfig config)
         {
             if (!_writingForestGrowthPercentToConfig)
@@ -635,6 +679,71 @@ namespace TimberHearthForest
                 RefreshModTreeVisualScales();
         }
 
+        private void SyncExtraTreesGiantsFromConfig(IModConfig config)
+        {
+            int newCount = Mathf.Max(0, Mathf.RoundToInt(ReadConfigSlider(config, "extraTreesGiantCount", 0f)));
+            float newMul = Mathf.Clamp(
+                ReadConfigSlider(config, "extraTreesGiantSizeMultiplier", 15f),
+                GiantSizeMultiplierMin,
+                GiantSizeMultiplierMax);
+
+            bool shuffleToggle;
+            try
+            {
+                shuffleToggle = config.GetSettingsValue<bool>("extraTreesGiantShuffleSelection");
+            }
+            catch
+            {
+                shuffleToggle = false;
+            }
+
+            bool mulChanged = Mathf.Abs(newMul - _giantSizeMultiplier) > 0.00001f;
+            _giantSizeMultiplier = newMul;
+
+            if (spawnedTrees == null || spawnedTrees.Count == 0)
+            {
+                _giantTreeIndices.Clear();
+                _lastSyncedGiantCount = -1;
+                _lastGiantShuffleToggle = shuffleToggle;
+                return;
+            }
+
+            bool shuffleEdge = shuffleToggle != _lastGiantShuffleToggle;
+            bool countChanged = newCount != _lastSyncedGiantCount;
+            bool firstPick = _lastSyncedGiantCount < 0;
+            bool needRepick = firstPick || countChanged || shuffleEdge;
+
+            if (needRepick)
+                RepickGiantTreeIndices(newCount);
+
+            _lastSyncedGiantCount = newCount;
+            _lastGiantShuffleToggle = shuffleToggle;
+
+            if (needRepick || mulChanged)
+                RefreshModTreeVisualScales();
+        }
+
+        private void RepickGiantTreeIndices(int configuredCount)
+        {
+            _giantTreeIndices.Clear();
+            int n = spawnedTrees.Count;
+            if (n == 0 || configuredCount <= 0)
+                return;
+
+            int pick = Mathf.Min(configuredCount, n);
+            List<int> pool = Enumerable.Range(0, n).ToList();
+            for (int i = n - 1; i > 0; i--)
+            {
+                int j = UnityEngine.Random.Range(0, i + 1);
+                int t = pool[i];
+                pool[i] = pool[j];
+                pool[j] = t;
+            }
+
+            for (int i = 0; i < pick; i++)
+                _giantTreeIndices.Add(pool[i]);
+        }
+
         private void SyncExtraTreesPerTreeScaleActionFromConfig(IModConfig config)
         {
             string action;
@@ -646,6 +755,9 @@ namespace TimberHearthForest
             {
                 action = ExtraTreesPerTreeScaleIdle;
             }
+
+            if (action == "Randomize (1 to 14 each)")
+                action = ExtraTreesPerTreeScaleRandomize;
 
             if (_extraTreesUseRandomCap
                 && action == ExtraTreesPerTreeScaleRandomize
@@ -664,8 +776,12 @@ namespace TimberHearthForest
             if (!_extraTreesUseRandomCap
                 || spawnedTrees == null || spawnedTrees.Count == 0 || _treeKRandomUniformScales == null)
                 return;
+            float lo = _randomPerTreeKMin;
+            float hi = _randomPerTreeKMax;
+            if (hi <= lo)
+                hi = lo + 0.01f;
             for (int i = 0; i < spawnedTrees.Count; i++)
-                _treeKRandomUniformScales[i] = UnityEngine.Random.Range(KRandomizeScaleMin, KRandomizeScaleMax);
+                _treeKRandomUniformScales[i] = UnityEngine.Random.Range(lo, hi);
         }
 
         private void SyncExtraTreesResetGrowthActionFromConfig(IModConfig config)
@@ -756,8 +872,9 @@ namespace TimberHearthForest
                 float k = _extraTreesUseRandomCap ? _treeKRandomUniformScales[i] : 1f;
                 float b = _treeTargetUniformScales[i] * k;
                 float m = _treeScaleMultiplier;
-                float sm = b * TreeGrowthStartFraction * m;
-                float lg = b * m;
+                float giantFactor = _giantTreeIndices.Contains(i) ? _giantSizeMultiplier : 1f;
+                float sm = b * TreeGrowthStartFraction * m * giantFactor;
+                float lg = b * m * giantFactor;
                 float s = Mathf.Lerp(sm, lg, u);
                 spawnedTrees[i].transform.localScale = new Vector3(s, s, s);
             }
