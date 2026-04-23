@@ -51,9 +51,9 @@ namespace TimberHearthForest
         private HashSet<int> _giantTreeIndices = new HashSet<int>();
         private int _lastSyncedGiantCount = -1;
         private bool _lastGiantShuffleToggle;
-        private float _giantSizeMultiplier = 15f;
-        private const float GiantSizeMultiplierMin = 10f;
-        private const float GiantSizeMultiplierMax = 30f;
+        private float _giantSizeMultiplier = 2f;
+        private const float GiantSizeMultiplierMin = 1f;
+        private const float GiantSizeMultiplierMax = 5f;
         private const string ExtraTreesResetGrowthIdle = "Idle";
         private const string ExtraTreesResetGrowthRun = "Reset to saplings (min size, grow again)";
         private string _lastExtraTreesResetGrowthMenuValue = ExtraTreesResetGrowthIdle;
@@ -700,7 +700,7 @@ namespace TimberHearthForest
         {
             int newCount = Mathf.Max(0, Mathf.RoundToInt(ReadConfigSlider(config, "extraTreesGiantCount", 0f)));
             float newMul = Mathf.Clamp(
-                ReadConfigSlider(config, "extraTreesGiantSizeMultiplier", 15f),
+                ReadConfigSlider(config, "extraTreesGiantSizeMultiplier", 2f),
                 GiantSizeMultiplierMin,
                 GiantSizeMultiplierMax);
 

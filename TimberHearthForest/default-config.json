@@ -151,10 +151,10 @@
     "extraTreesGiantSizeMultiplier": {
       "title": "Giant tree size (x)",
       "type": "slider",
-      "min": 10,
-      "max": 30,
-      "value": 15,
-      "tooltip": "Multiplier applied to a giant tree's whole growth range (sapling through full size)."
+      "min": 1,
+      "max": 5,
+      "value": 2,
+      "tooltip": "Extra scale on top of normal trees for giants only (1 = same size range as non-giants, higher = taller). Applied to the whole growth range."
     },
     "extraTreesGiantShuffleSelection": {
       "title": "Shuffle which trees are giants",
@@ -170,7 +170,7 @@
         "Idle",
         "Randomize each tree"
       ],
-      "tooltip": "Only applies when \"Random max size per tree\" is on. Choose Randomize once to roll a new random size factor per tree within the min/max sliders, then switch back to Idle to randomize again later."
+      "tooltip": "Only applies when the Random max size per tree toggle is on. Choose Randomize once to roll a new random size factor per tree within the min and max sliders, then switch back to Idle to randomize again later."
     },
     "extraTreesResetGrowthAction": {
       "title": "Restart growth from saplings",
