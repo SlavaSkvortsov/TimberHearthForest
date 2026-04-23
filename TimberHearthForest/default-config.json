@@ -114,20 +114,20 @@
       "tooltip": "Off: same max size for every tree (only the overall scale slider applies). On: each tree rolls its own max size factor in the min/max range below; use Randomize to re-roll."
     },
     "extraTreesRandomPerTreeKMin": {
-      "title": "Random per-tree size — minimum (×)",
+      "title": "Random per-tree size - minimum (x)",
       "type": "slider",
       "min": 0,
       "max": 10,
       "value": 1,
-      "tooltip": "Lower bound for each tree’s random size factor when random max is enabled (inclusive)."
+      "tooltip": "Lower bound for each tree's random size factor when random max is enabled (inclusive)."
     },
     "extraTreesRandomPerTreeKMax": {
-      "title": "Random per-tree size — maximum (×)",
+      "title": "Random per-tree size - maximum (x)",
       "type": "slider",
       "min": 10,
       "max": 20,
       "value": 14,
-      "tooltip": "Upper bound for each tree’s random size factor when random max is enabled (inclusive). If it ends up below the minimum, the mod swaps them."
+      "tooltip": "Upper bound for each tree's random size factor when random max is enabled (inclusive). If it ends up below the minimum, the mod swaps them."
     },
     "extraTreesGlobalScale": {
       "title": "Extra Trees Overall Scale",
@@ -149,12 +149,12 @@
       "tooltip": "How many extra trees become giants (clamped to how many trees actually spawned). 0 disables giants."
     },
     "extraTreesGiantSizeMultiplier": {
-      "title": "Giant tree size (×)",
+      "title": "Giant tree size (x)",
       "type": "slider",
       "min": 10,
       "max": 30,
       "value": 15,
-      "tooltip": "Multiplier applied to a giant tree’s whole growth range (sapling through full size)."
+      "tooltip": "Multiplier applied to a giant tree's whole growth range (sapling through full size)."
     },
     "extraTreesGiantShuffleSelection": {
       "title": "Shuffle which trees are giants",
