@@ -76,8 +76,11 @@ jobs:
           name: "${{ env.PROJ_USERNAME }}.${{ env.PROJ_NAME }}"
           path: "${{ env.PROJ_NAME }}/bin/Release"
 
+      # Zip flat mod layout (manifest, default-config, dll, Assets at archive root).
+      # A path like ./Project/bin/Release/** can nest folders inside the zip and break OWML.
       - name: Zip For Release
-        run: 7z a ${{ env.PROJ_USERNAME }}.${{ env.PROJ_NAME }}.zip ./${{ env.PROJ_NAME }}/bin/Release/**
+        working-directory: ${{ env.PROJ_NAME }}/bin/Release
+        run: 7z a "${{ github.workspace }}/${{ env.PROJ_USERNAME }}.${{ env.PROJ_NAME }}.zip" *
 
       - name: Create Release
         uses: "ncipollo/release-action@v1"

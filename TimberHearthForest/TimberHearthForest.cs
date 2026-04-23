@@ -120,27 +120,27 @@ namespace TimberHearthForest
         public override void Configure(IModConfig config)
         {
             // Update the tree density
-            string treeDensityPreset = config.GetSettingsValue<string>("treeDensity");
+            string treeDensityPreset = ReadConfigString(config, "treeDensity", "Ultra");
             UpdatePropDensity(treeDensityPreset, "tree");
 
             // Update sector based on whether the sector optimisation is enabled
-            forestSectorOptimisationEnabled = ModHelper.Config.GetSettingsValue<string>("treeOcclusionOptimisation") == "Enabled";
+            forestSectorOptimisationEnabled = ReadConfigString(config, "treeOcclusionOptimisation", "Enabled") == "Enabled";
 
             // Update the grass density
-            string grassDensityPreset = config.GetSettingsValue<string>("grassDensity");
+            string grassDensityPreset = ReadConfigString(config, "grassDensity", "Ultra");
             UpdatePropDensity(grassDensityPreset, "grass");
 
             // Update when fireflies should be active
-            string fireflyEnabledState = config.GetSettingsValue<string>("fireflyEnabled");
+            string fireflyEnabledState = ReadConfigString(config, "fireflyEnabled", "Night");
             firefliesEnabledAtNight = fireflyEnabledState == "Night" || fireflyEnabledState == "Day and Night";
             firefliesEnabledAtDay = fireflyEnabledState == "Day" || fireflyEnabledState == "Day and Night";
 
             // Update the firefly emitter density
-            string fireflyDensityPreset = config.GetSettingsValue<string>("fireflyDensity");
+            string fireflyDensityPreset = ReadConfigString(config, "fireflyDensity", "Ultra");
             UpdatePropDensity(fireflyDensityPreset, "firefly");
 
             // Update whether clouds are enabled
-            string cloudDensityPreset = config.GetSettingsValue<string>("cloudDensity");
+            string cloudDensityPreset = ReadConfigString(config, "cloudDensity", "High");
             UpdateCloudDensity(cloudDensityPreset);
 
             SyncExtraTreesCapModeFromConfig(config);
@@ -210,7 +210,7 @@ namespace TimberHearthForest
             CloudUtils.CreateCloud(cloudHolder, 295.0f, "timberHearthClouds3", "timberHearthCloudsNormal3", 0.0034f, false, ref cloudObjects, ref cloudVelocities);
 
             // Apply the initial cloud visibility setting
-            string cloudDensityPreset = ModHelper.Config.GetSettingsValue<string>("cloudDensity");
+            string cloudDensityPreset = ReadConfigString(ModHelper.Config, "cloudDensity", "High");
             UpdateCloudDensity(cloudDensityPreset);
         }
 
@@ -400,26 +400,26 @@ namespace TimberHearthForest
             ModHelper.Console.WriteLine("All trees, grass tufts and fireflies have been created successfully.", MessageType.Success);
 
             // Update the tree density
-            string treeDensityPreset = ModHelper.Config.GetSettingsValue<string>("treeDensity");
+            IModConfig cfg = ModHelper.Config;
+            string treeDensityPreset = ReadConfigString(cfg, "treeDensity", "Ultra");
             UpdatePropDensity(treeDensityPreset, "tree");
 
             // Update sector based on whether the sector optimisation is enabled
-            forestSectorOptimisationEnabled = ModHelper.Config.GetSettingsValue<string>("treeOcclusionOptimisation") == "Enabled";
+            forestSectorOptimisationEnabled = ReadConfigString(cfg, "treeOcclusionOptimisation", "Enabled") == "Enabled";
 
             // Update the grass density
-            string grassDensityPreset = ModHelper.Config.GetSettingsValue<string>("grassDensity");
-            UpdatePropDensity(treeDensityPreset, "grass");
+            string grassDensityPreset = ReadConfigString(cfg, "grassDensity", "Ultra");
+            UpdatePropDensity(grassDensityPreset, "grass");
 
             // Update firefly visibility
-            string fireflyEnabledState = ModHelper.Config.GetSettingsValue<string>("fireflyEnabled");
+            string fireflyEnabledState = ReadConfigString(cfg, "fireflyEnabled", "Night");
             firefliesEnabledAtNight = fireflyEnabledState == "Night" || fireflyEnabledState == "Day and Night";
             firefliesEnabledAtDay = fireflyEnabledState == "Day" || fireflyEnabledState == "Day and Night";
 
             // Update the firefly density
-            string fireflyDensityPreset = ModHelper.Config.GetSettingsValue<string>("fireflyDensity");
+            string fireflyDensityPreset = ReadConfigString(cfg, "fireflyDensity", "Ultra");
             UpdatePropDensity(fireflyDensityPreset, "firefly");
 
-            IModConfig cfg = ModHelper.Config;
             SyncExtraTreesCapModeFromConfig(cfg);
             SyncExtraTreesRandomPerTreeRangeFromConfig(cfg);
             SyncExtraTreesGrowthFromConfig(cfg);
@@ -530,7 +530,7 @@ namespace TimberHearthForest
                 case "Low":     density = 4; break;
                 case "Hidden":  density = propCount * 2; break;
                 default:
-                    ModHelper.Console.WriteLine($"Unknown {spawnType} density setting: {density}", MessageType.Error);
+                    ModHelper.Console.WriteLine($"Unknown {spawnType} density setting: {densityDescriptor}", MessageType.Error);
                     return;
             }
 
@@ -587,6 +587,23 @@ namespace TimberHearthForest
             try
             {
                 return (float)config.GetSettingsValue<double>(key);
+            }
+            catch
+            {
+                return fallback;
+            }
+        }
+
+        /// <summary>
+        /// OWML logs "Setting not found" if the key is missing from the merged config (e.g. wrong mod folder layout).
+        /// Fall back so the mod still runs and the menu can recover after default-config.json is installed.
+        /// </summary>
+        private static string ReadConfigString(IModConfig config, string key, string fallback)
+        {
+            try
+            {
+                string v = config.GetSettingsValue<string>(key);
+                return string.IsNullOrEmpty(v) ? fallback : v;
             }
             catch
             {
