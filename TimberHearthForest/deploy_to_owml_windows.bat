@@ -6,6 +6,11 @@ REM Timber Hearth Forest - Windows deploy helper
 REM ------------------------------------------------------------
 REM Copies only selected/changed files into your OWML mod install.
 REM Run this .bat from Windows after building the DLL.
+REM
+REM OWML expects a FLAT mod folder next to the DLL: manifest.json,
+REM default-config.json, and Assets\. Same layout as bin\Release after
+REM build and as the GitHub release zip (see .github/workflows/release.yml).
+REM Core files below are copied from bin\Release so deploy matches release.
 REM ============================================================
 
 REM ---- Destination from your message (edit if needed) ----
@@ -41,10 +46,11 @@ if not exist "%TARGET_ASSETS_DIR%\" (
   )
 )
 
-REM ---- Core mod files ----
-call :copy_if_exists "%SRC_DIR%manifest.json" "%TARGET_MOD_DIR%\manifest.json"
-call :copy_if_exists "%SRC_DIR%default-config.json" "%TARGET_MOD_DIR%\default-config.json"
-call :copy_if_exists "%SRC_DIR%bin\Release\TimberHearthForest.dll" "%TARGET_MOD_DIR%\TimberHearthForest.dll"
+REM ---- Core mod files (from Release output = same as release zip root) ----
+set "REL_DIR=%SRC_DIR%bin\Release\"
+call :copy_if_exists "%REL_DIR%manifest.json" "%TARGET_MOD_DIR%\manifest.json"
+call :copy_if_exists "%REL_DIR%default-config.json" "%TARGET_MOD_DIR%\default-config.json"
+call :copy_if_exists "%REL_DIR%TimberHearthForest.dll" "%TARGET_MOD_DIR%\TimberHearthForest.dll"
 
 REM ---- Assets: only selected files ----
 if "%COPY_TREE_SPAWN%"=="1" (

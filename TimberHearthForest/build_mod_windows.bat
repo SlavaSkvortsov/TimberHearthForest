@@ -6,6 +6,11 @@ REM Timber Hearth Forest - Windows build helper
 REM ------------------------------------------------------------
 REM Builds TimberHearthForest.dll from source.
 REM Optional: also run deploy_to_owml_windows.bat after build.
+REM
+REM After build, bin\Release\ is a flat OWML-ready folder (DLL, manifest,
+REM default-config.json, Assets\). Deploy copies those core files from
+REM bin\Release so your Mods\...\GameDev46.TimberHearthForest\ layout matches
+REM the GitHub release artifact (flat zip, no nested bin\Release paths).
 REM ============================================================
 
 REM ---- Config ----
