@@ -54,11 +54,11 @@ namespace TimberHearthForest
         private HashSet<int> _giantTreeIndices = new HashSet<int>();
         private int _lastSyncedGiantCount = -1;
         private bool _lastGiantShuffleToggle;
-        private float _giantSizeMultiplier = 2f;
+        private float _giantSizeMultiplier = 3.5f;
         private const float GiantSizeMultiplierMin = 1f;
         private const float GiantSizeMultiplierMax = 5f;
-        /// <summary>At max giant slider position, actual scale vs normal trees (slider 1 always = 1).</summary>
-        private const float GiantVisualScaleMax = 1.85f;
+        /// <summary>At max giant slider position, full-grown scale vs normal trees (slider 1 always = 1).</summary>
+        private const float GiantVisualScaleMax = 2.75f;
         private const string ExtraTreesResetGrowthIdle = "Idle";
         private const string ExtraTreesResetGrowthRun = "Reset to saplings (min size, grow again)";
         private string _lastExtraTreesResetGrowthMenuValue = ExtraTreesResetGrowthIdle;
@@ -791,7 +791,7 @@ namespace TimberHearthForest
         {
             int newCount = Mathf.Max(0, Mathf.RoundToInt(ReadConfigSlider(config, "extraTreesGiantCount", 0f)));
             float newMul = Mathf.Clamp(
-                ReadConfigSlider(config, "extraTreesGiantSizeMultiplier", 2f),
+                ReadConfigSlider(config, "extraTreesGiantSizeMultiplier", 3.5f),
                 GiantSizeMultiplierMin,
                 GiantSizeMultiplierMax);
 
@@ -1003,9 +1003,9 @@ namespace TimberHearthForest
             {
                 float k = _extraTreesUseRandomCap ? _treeKRandomUniformScales[i] : 1f;
                 float b = _treeTargetUniformScales[i] * k;
-                float giantFactor = _giantTreeIndices.Contains(i) ? giantVisual : 1f;
-                float sm = b * TreeGrowthStartFraction * m * giantFactor;
-                float lg = b * m * giantFactor;
+                float gMature = _giantTreeIndices.Contains(i) ? giantVisual : 1f;
+                float sm = b * TreeGrowthStartFraction * m;
+                float lg = b * m * gMature;
                 float s = Mathf.Lerp(sm, lg, u);
                 spawnedTrees[i].transform.localScale = new Vector3(s, s, s);
             }

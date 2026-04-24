@@ -200,8 +200,8 @@
       "type": "slider",
       "min": 1,
       "max": 5,
-      "value": 2,
-      "tooltip": "1 = giants match normal trees. 5 = strongest boost (about 1.85x). Values between ramp smoothly so the slider controls height in small steps."
+      "value": 3.5,
+      "tooltip": "1 = giants match normal trees at full growth. 5 = up to about 2.75x at full growth. Sapling size matches neighbors; only full-grown height is boosted so giants read clearly in the forest."
     },
     "extraTreesGiantShuffleSelection": {
       "title": "Shuffle which trees are giants",
