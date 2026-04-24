@@ -1004,15 +1004,16 @@ namespace TimberHearthForest
         /// <summary>
         /// Uniform world scale for one extra tree: linear size from current growth (sapling → mature),
         /// then multiplied once by overall scale <paramref name="m"/>.
+        /// Giants ignore per-tree random k so their scale does not change when randomizing caps.
         /// </summary>
         private float ComputeExtraTreeUniformScale(int treeIndex, float growth01, float m, float giantVisual)
         {
             growth01 = Mathf.Clamp01(growth01);
             float baseS = _treeTargetUniformScales[treeIndex];
-            float kRaw = _extraTreesUseRandomCap ? _treeKRandomUniformScales[treeIndex] : 1f;
+            bool giant = _giantTreeIndices.Contains(treeIndex);
+            float kRaw = !giant && _extraTreesUseRandomCap ? _treeKRandomUniformScales[treeIndex] : 1f;
             float kEff = Mathf.Lerp(1f, kRaw, RandomPerTreeKBlend);
             float bk = Mathf.Min(baseS * kEff, MaxBaseTimesK);
-            bool giant = _giantTreeIndices.Contains(treeIndex);
 
             float smLinear = bk * TreeGrowthStartFraction;
             float lgLinear = bk * (giant ? giantVisual : 1f);
