@@ -61,8 +61,10 @@ namespace TimberHearthForest
         private float _giantSizeMultiplier = 3.5f;
         private const float GiantSizeMultiplierMin = 5f;
         private const float GiantSizeMultiplierMax = 10f;
-        /// <summary>At max giant slider position, full-grown linear scale vs normal trees (min slider = 1x).</summary>
-        private const float GiantVisualScaleMax = 4.5f;
+        /// <summary>Full-grown giant linear scale at min slider (same as the old global max).</summary>
+        private const float GiantVisualScaleMin = 4.5f;
+        /// <summary>Full-grown giant linear scale at max slider.</summary>
+        private const float GiantVisualScaleMax = 12f;
         private const string ExtraTreesResetGrowthIdle = "Idle";
         private const string ExtraTreesResetGrowthRun = "Reset to saplings (min size, grow again)";
         private string _lastExtraTreesResetGrowthMenuValue = ExtraTreesResetGrowthIdle;
@@ -985,7 +987,7 @@ namespace TimberHearthForest
                 GiantSizeMultiplierMin,
                 GiantSizeMultiplierMax,
                 Mathf.Clamp(_giantSizeMultiplier, GiantSizeMultiplierMin, GiantSizeMultiplierMax));
-            return Mathf.Lerp(1f, GiantVisualScaleMax, t);
+            return Mathf.Lerp(GiantVisualScaleMin, GiantVisualScaleMax, t);
         }
 
         /// <summary>

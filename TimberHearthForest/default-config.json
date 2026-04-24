@@ -201,7 +201,7 @@
       "min": 5,
       "max": 10,
       "value": 7.5,
-      "tooltip": "5 = giants match normal trees at full growth. 10 = up to about 4.5x at full growth. Sapling size matches neighbors; only full-grown height is boosted so giants read clearly in the forest."
+      "tooltip": "5 ≈ 4.5× normal trees at full growth (previous max). 10 ≈ 12×. Sapling size matches neighbors; only full-grown height is boosted so giants read clearly in the forest."
     },
     "extraTreesGiantShuffleSelection": {
       "title": "Shuffle which trees are giants",
