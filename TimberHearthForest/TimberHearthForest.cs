@@ -42,9 +42,11 @@ namespace TimberHearthForest
         private bool _writingForestGrowthPercentToConfig;
         private float _lastForestGrowthConfigPushUnscaledTime = -999f;
         private const float ForestGrowthConfigPushMinInterval = 0.12f;
-        private const float MinTreeScaleMultiplier = 0.15f;
-        private const float MaxTreeScaleMultiplier = 1.35f;
-        private float _treeScaleMultiplier = 0.65f;
+        private const float MinTreeScaleMultiplier = 0.25f;
+        private const float MaxTreeScaleMultiplier = 0.78f;
+        private float _treeScaleMultiplier = 0.52f;
+        /// <summary>Exponent on normalized slider (greater than 1): slows growth toward max so small slider moves change size less when base * k is large.</summary>
+        private const float GlobalTreeScaleSliderCurveExponent = 1.35f;
         private const string ExtraTreesPerTreeScaleIdle = "Idle";
         private const string ExtraTreesPerTreeScaleRandomize = "Randomize each tree";
         private string _lastExtraTreesPerTreeScaleMenuValue = ExtraTreesPerTreeScaleIdle;
@@ -372,7 +374,7 @@ namespace TimberHearthForest
                 // Set position, rotation and scale (trees start as saplings; use mod menu growth sliders to grow)
                 treeClone.transform.position = detailWorldCoords;
                 treeClone.transform.localRotation = Quaternion.Euler(detail.rotation.x + randOffsets.x, detail.rotation.y + randOffsets.y, detail.rotation.z + randOffsets.z);
-                float saplingScale = randomScale * TreeGrowthStartFraction * _treeScaleMultiplier;
+                float saplingScale = randomScale * TreeGrowthStartFraction * GetEffectiveGlobalTreeScale();
                 treeClone.transform.localScale = new Vector3(saplingScale, saplingScale, saplingScale);
 
                 foreach (var tracker in treeClone.GetComponentsInChildren<ShapeVisibilityTracker>(true))
@@ -775,7 +777,7 @@ namespace TimberHearthForest
         private void SyncExtraTreesGlobalScaleFromConfig(IModConfig config)
         {
             float v = Mathf.Clamp(
-                ReadConfigSlider(config, "extraTreesGlobalScale", 0.65f),
+                ReadConfigSlider(config, "extraTreesGlobalScale", 0.52f),
                 MinTreeScaleMultiplier,
                 MaxTreeScaleMultiplier);
             if (Mathf.Abs(v - _treeScaleMultiplier) < 0.00001f)
@@ -979,15 +981,28 @@ namespace TimberHearthForest
             return Mathf.Lerp(1f, GiantVisualScaleMax, t);
         }
 
+        /// <summary>
+        /// Raw slider is in <see cref="MinTreeScaleMultiplier"/>..<see cref="MaxTreeScaleMultiplier"/>.
+        /// Full-grown size is proportional to (base * k) * raw; k can be large, so we curve the slider
+        /// so the same pixel move changes world scale less (especially near the top of the range).
+        /// </summary>
+        private float GetEffectiveGlobalTreeScale()
+        {
+            float raw = Mathf.Clamp(_treeScaleMultiplier, MinTreeScaleMultiplier, MaxTreeScaleMultiplier);
+            float r = Mathf.InverseLerp(MinTreeScaleMultiplier, MaxTreeScaleMultiplier, raw);
+            float rCurved = Mathf.Pow(r, GlobalTreeScaleSliderCurveExponent);
+            return Mathf.Lerp(MinTreeScaleMultiplier, MaxTreeScaleMultiplier, rCurved);
+        }
+
         private void RefreshModTreeVisualScales()
         {
             float u = Mathf.Clamp01(_forestGrowthPercent / 100f);
             float giantVisual = GetGiantVisualScaleFactor();
+            float m = GetEffectiveGlobalTreeScale();
             for (int i = 0; i < spawnedTrees.Count; i++)
             {
                 float k = _extraTreesUseRandomCap ? _treeKRandomUniformScales[i] : 1f;
                 float b = _treeTargetUniformScales[i] * k;
-                float m = _treeScaleMultiplier;
                 float giantFactor = _giantTreeIndices.Contains(i) ? giantVisual : 1f;
                 float sm = b * TreeGrowthStartFraction * m * giantFactor;
                 float lg = b * m * giantFactor;
