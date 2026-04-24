@@ -59,8 +59,8 @@ namespace TimberHearthForest
         private int _lastSyncedGiantCount = -1;
         private bool _lastGiantShuffleToggle;
         private float _giantSizeMultiplier = 3.5f;
-        private const float GiantSizeMultiplierMin = 1f;
-        private const float GiantSizeMultiplierMax = 5f;
+        private const float GiantSizeMultiplierMin = 5f;
+        private const float GiantSizeMultiplierMax = 10f;
         /// <summary>At max giant slider position, full-grown scale vs normal trees (slider 1 always = 1).</summary>
         private const float GiantVisualScaleMax = 2.75f;
         private const string ExtraTreesResetGrowthIdle = "Idle";
@@ -798,7 +798,7 @@ namespace TimberHearthForest
         {
             int newCount = Mathf.Max(0, Mathf.RoundToInt(ReadConfigSlider(config, "extraTreesGiantCount", 0f)));
             float newMul = Mathf.Clamp(
-                ReadConfigSlider(config, "extraTreesGiantSizeMultiplier", 3.5f),
+                ReadConfigSlider(config, "extraTreesGiantSizeMultiplier", 7.5f),
                 GiantSizeMultiplierMin,
                 GiantSizeMultiplierMax);
 

@@ -196,12 +196,12 @@
       "tooltip": "How many extra trees become giants (clamped to how many trees actually spawned). 0 disables giants."
     },
     "extraTreesGiantSizeMultiplier": {
-      "title": "Giant tree size ramp (1-5)",
+      "title": "Giant tree size ramp (5-10)",
       "type": "slider",
-      "min": 1,
-      "max": 5,
-      "value": 3.5,
-      "tooltip": "1 = giants match normal trees at full growth. 5 = up to about 2.75x at full growth. Sapling size matches neighbors; only full-grown height is boosted so giants read clearly in the forest."
+      "min": 5,
+      "max": 10,
+      "value": 7.5,
+      "tooltip": "5 = giants match normal trees at full growth. 10 = up to about 2.75x at full growth. Sapling size matches neighbors; only full-grown height is boosted so giants read clearly in the forest."
     },
     "extraTreesGiantShuffleSelection": {
       "title": "Shuffle which trees are giants",
