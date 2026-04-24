@@ -47,6 +47,10 @@ namespace TimberHearthForest
         private float _treeScaleMultiplier = 0.52f;
         /// <summary>Exponent on normalized slider (greater than 1): slows growth toward max so small slider moves change size less when base * k is large.</summary>
         private const float GlobalTreeScaleSliderCurveExponent = 1.35f;
+        /// <summary>Random k is lerped from 1 toward raw k so random mode does not dominate overall size.</summary>
+        private const float RandomPerTreeKBlend = 0.42f;
+        /// <summary>Cap on base * k for non-giant trees at full linear size before growth lerp and overall scale (approx max vs smallest normal tree).</summary>
+        private const float NonGiantMaxBaseTimesK = 5f;
         private const string ExtraTreesPerTreeScaleIdle = "Idle";
         private const string ExtraTreesPerTreeScaleRandomize = "Randomize each tree";
         private string _lastExtraTreesPerTreeScaleMenuValue = ExtraTreesPerTreeScaleIdle;
@@ -368,14 +372,17 @@ namespace TimberHearthForest
                 );
 
                 float randomScale = UnityEngine.Random.Range(0.55f, 1.65f);
+                int treeIndex = _treeTargetUniformScales.Count;
                 _treeTargetUniformScales.Add(randomScale);
                 _treeKRandomUniformScales.Add(1f);
 
                 // Set position, rotation and scale (trees start as saplings; use mod menu growth sliders to grow)
                 treeClone.transform.position = detailWorldCoords;
                 treeClone.transform.localRotation = Quaternion.Euler(detail.rotation.x + randOffsets.x, detail.rotation.y + randOffsets.y, detail.rotation.z + randOffsets.z);
-                float saplingScale = randomScale * TreeGrowthStartFraction * GetEffectiveGlobalTreeScale();
-                treeClone.transform.localScale = new Vector3(saplingScale, saplingScale, saplingScale);
+                float m0 = GetEffectiveGlobalTreeScale();
+                float gv0 = GetGiantVisualScaleFactor();
+                float su = ComputeExtraTreeUniformScale(treeIndex, Mathf.Clamp01(_forestGrowthPercent / 100f), m0, gv0);
+                treeClone.transform.localScale = new Vector3(su, su, su);
 
                 foreach (var tracker in treeClone.GetComponentsInChildren<ShapeVisibilityTracker>(true))
                 {
@@ -994,6 +1001,27 @@ namespace TimberHearthForest
             return Mathf.Lerp(MinTreeScaleMultiplier, MaxTreeScaleMultiplier, rCurved);
         }
 
+        /// <summary>
+        /// Uniform world scale for one extra tree: linear size from current growth (sapling → mature),
+        /// then multiplied once by overall scale <paramref name="m"/>.
+        /// </summary>
+        private float ComputeExtraTreeUniformScale(int treeIndex, float growth01, float m, float giantVisual)
+        {
+            growth01 = Mathf.Clamp01(growth01);
+            float baseS = _treeTargetUniformScales[treeIndex];
+            float kRaw = _extraTreesUseRandomCap ? _treeKRandomUniformScales[treeIndex] : 1f;
+            float kEff = Mathf.Lerp(1f, kRaw, RandomPerTreeKBlend);
+            float bk = baseS * kEff;
+            bool giant = _giantTreeIndices.Contains(treeIndex);
+            if (!giant)
+                bk = Mathf.Min(bk, NonGiantMaxBaseTimesK);
+
+            float smLinear = bk * TreeGrowthStartFraction;
+            float lgLinear = bk * (giant ? giantVisual : 1f);
+            float core = Mathf.Lerp(smLinear, lgLinear, growth01);
+            return core * m;
+        }
+
         private void RefreshModTreeVisualScales()
         {
             float u = Mathf.Clamp01(_forestGrowthPercent / 100f);
@@ -1001,12 +1029,7 @@ namespace TimberHearthForest
             float m = GetEffectiveGlobalTreeScale();
             for (int i = 0; i < spawnedTrees.Count; i++)
             {
-                float k = _extraTreesUseRandomCap ? _treeKRandomUniformScales[i] : 1f;
-                float b = _treeTargetUniformScales[i] * k;
-                float gMature = _giantTreeIndices.Contains(i) ? giantVisual : 1f;
-                float sm = b * TreeGrowthStartFraction * m;
-                float lg = b * m * gMature;
-                float s = Mathf.Lerp(sm, lg, u);
+                float s = ComputeExtraTreeUniformScale(i, u, m, giantVisual);
                 spawnedTrees[i].transform.localScale = new Vector3(s, s, s);
             }
         }
