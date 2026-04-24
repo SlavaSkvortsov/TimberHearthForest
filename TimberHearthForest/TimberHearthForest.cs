@@ -80,6 +80,7 @@ namespace TimberHearthForest
         private float _hemisphereYawDeg;
         private float _hemispherePitchDeg;
         private float _hemisphereBlend = 0.35f;
+        private bool _hemisphereHardEdge;
 
         private bool firefliesEnabledAtNight = true;
         private bool firefliesEnabledAtDay = true;
@@ -603,6 +604,9 @@ namespace TimberHearthForest
             Vector3 denseDir = Quaternion.Euler(_hemispherePitchDeg, _hemisphereYawDeg, 0f) * Vector3.right;
             denseDir.Normalize();
             float d = Vector3.Dot(pDir, denseDir) + _hemispherePlaneOffset;
+            if (_hemisphereHardEdge)
+                return d >= 0f ? 1f : 0f;
+
             float b = Mathf.Max(0.05f, _hemisphereBlend);
             float t = Mathf.Clamp01(Mathf.InverseLerp(-b, b, d));
             return Mathf.SmoothStep(0f, 1f, t);
@@ -621,6 +625,17 @@ namespace TimberHearthForest
             }
 
             _hemisphereModeEnabled = enabled;
+            bool hardEdge;
+            try
+            {
+                hardEdge = config.GetSettingsValue<bool>("extraTreesHemisphereHardEdge");
+            }
+            catch
+            {
+                hardEdge = false;
+            }
+
+            _hemisphereHardEdge = hardEdge;
             _hemispherePlaneOffset = Mathf.Clamp(ReadConfigSlider(config, "extraTreesHemispherePlaneOffset", 0f), -1f, 1f);
             _hemisphereYawDeg = ReadConfigSlider(config, "extraTreesHemisphereYawDeg", 0f);
             _hemispherePitchDeg = Mathf.Clamp(ReadConfigSlider(config, "extraTreesHemispherePitchDeg", 0f), -90f, 90f);

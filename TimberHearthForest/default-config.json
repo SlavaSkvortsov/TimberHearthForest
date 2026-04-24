@@ -87,7 +87,13 @@
       "title": "Terrain hemisphere tree gradient",
       "type": "toggle",
       "value": false,
-      "tooltip": "When on, trees thin out on one side of Timber Hearth and get denser on the other, with a smooth blend. Uses planet local axes. Does not affect grass or fireflies."
+      "tooltip": "When on, trees thin out on one side of Timber Hearth and get denser on the other. Uses planet local axes. Does not affect grass or fireflies. Turn on Hard cut for a sharp zero-or-full split instead of a smooth ramp."
+    },
+    "extraTreesHemisphereHardEdge": {
+      "title": "Hemisphere - hard cut (full vs none)",
+      "type": "toggle",
+      "value": false,
+      "tooltip": "Only when hemisphere mode is on. On: one side keeps full tree density in each slot, the other side has none (step at the plane). Off: smooth ramp using the transition width slider."
     },
     "extraTreesHemispherePlaneOffset": {
       "title": "Hemisphere - plane offset",
@@ -119,7 +125,7 @@
       "min": 0.05,
       "max": 0.95,
       "value": 0.35,
-      "tooltip": "How wide the blend band is (dot product space). Lower = sharper edge between sparse and dense sides."
+      "tooltip": "Smooth mode only. How wide the blend band is (dot product space). Ignored when Hard cut is on."
     },
     "extraTreesGrowthSeparator": {
       "type": "separator"
