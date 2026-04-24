@@ -61,8 +61,8 @@ namespace TimberHearthForest
         private float _giantSizeMultiplier = 3.5f;
         private const float GiantSizeMultiplierMin = 5f;
         private const float GiantSizeMultiplierMax = 10f;
-        /// <summary>At max giant slider position, full-grown scale vs normal trees (slider 1 always = 1).</summary>
-        private const float GiantVisualScaleMax = 2.75f;
+        /// <summary>At max giant slider position, full-grown linear scale vs normal trees (min slider = 1x).</summary>
+        private const float GiantVisualScaleMax = 4.5f;
         private const string ExtraTreesResetGrowthIdle = "Idle";
         private const string ExtraTreesResetGrowthRun = "Reset to saplings (min size, grow again)";
         private string _lastExtraTreesResetGrowthMenuValue = ExtraTreesResetGrowthIdle;
