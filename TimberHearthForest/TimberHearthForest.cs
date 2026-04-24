@@ -42,9 +42,9 @@ namespace TimberHearthForest
         private bool _writingForestGrowthPercentToConfig;
         private float _lastForestGrowthConfigPushUnscaledTime = -999f;
         private const float ForestGrowthConfigPushMinInterval = 0.12f;
-        private const float MinTreeScaleMultiplier = 0.1f;
-        private const float MaxTreeScaleMultiplier = 10f;
-        private float _treeScaleMultiplier = 1f;
+        private const float MinTreeScaleMultiplier = 0.15f;
+        private const float MaxTreeScaleMultiplier = 1.35f;
+        private float _treeScaleMultiplier = 0.65f;
         private const string ExtraTreesPerTreeScaleIdle = "Idle";
         private const string ExtraTreesPerTreeScaleRandomize = "Randomize each tree";
         private string _lastExtraTreesPerTreeScaleMenuValue = ExtraTreesPerTreeScaleIdle;
@@ -775,7 +775,7 @@ namespace TimberHearthForest
         private void SyncExtraTreesGlobalScaleFromConfig(IModConfig config)
         {
             float v = Mathf.Clamp(
-                ReadConfigSlider(config, "extraTreesGlobalScale", 1f),
+                ReadConfigSlider(config, "extraTreesGlobalScale", 0.65f),
                 MinTreeScaleMultiplier,
                 MaxTreeScaleMultiplier);
             if (Mathf.Abs(v - _treeScaleMultiplier) < 0.00001f)
