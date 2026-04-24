@@ -80,6 +80,47 @@
       ],
       "tooltip": "When enabled trees which are hidden from the camera's view are disabled"
     },
+    "extraTreesHemisphereSeparator": {
+      "type": "separator"
+    },
+    "extraTreesHemisphereGradientEnabled": {
+      "title": "Terrain hemisphere tree gradient",
+      "type": "toggle",
+      "value": false,
+      "tooltip": "When on, trees thin out on one side of Timber Hearth and get denser on the other, with a smooth blend. Uses planet local axes. Does not affect grass or fireflies."
+    },
+    "extraTreesHemispherePlaneOffset": {
+      "title": "Hemisphere - plane offset",
+      "type": "slider",
+      "min": -1,
+      "max": 1,
+      "value": 0,
+      "tooltip": "Slides the sparse-or-dense boundary along the dense direction. 0 keeps the default split."
+    },
+    "extraTreesHemisphereYawDeg": {
+      "title": "Hemisphere - yaw (degrees)",
+      "type": "slider",
+      "min": 0,
+      "max": 360,
+      "value": 0,
+      "tooltip": "Rotates the dense direction around Timber Hearth local Y."
+    },
+    "extraTreesHemispherePitchDeg": {
+      "title": "Hemisphere - pitch (degrees)",
+      "type": "slider",
+      "min": -90,
+      "max": 90,
+      "value": 0,
+      "tooltip": "Tilts the dense direction. Combine with yaw to aim where the thick forest sits."
+    },
+    "extraTreesHemisphereBlend": {
+      "title": "Hemisphere - transition width",
+      "type": "slider",
+      "min": 0.05,
+      "max": 0.95,
+      "value": 0.35,
+      "tooltip": "How wide the blend band is (dot product space). Lower = sharper edge between sparse and dense sides."
+    },
     "extraTreesGrowthSeparator": {
       "type": "separator"
     },

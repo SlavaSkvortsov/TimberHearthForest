@@ -30,6 +30,7 @@ namespace TimberHearthForest
         private Dictionary<Vector3Int, ForestSectorUtils.ForestSector> forestSectors = new Dictionary<Vector3Int, ForestSectorUtils.ForestSector>();
 
         private List<GameObject> spawnedTrees = new List<GameObject>();
+        private List<Vector3> _treeSpawnTHLocal = new List<Vector3>();
         private List<float> _treeTargetUniformScales = new List<float>();
         private List<float> _treeKRandomUniformScales;
         private const float TreeGrowthStartFraction = 0.02f;
@@ -73,6 +74,12 @@ namespace TimberHearthForest
         private Sector quantumMoonSector;
 
         private bool forestSectorOptimisationEnabled = true;
+
+        private bool _hemisphereModeEnabled;
+        private float _hemispherePlaneOffset;
+        private float _hemisphereYawDeg;
+        private float _hemispherePitchDeg;
+        private float _hemisphereBlend = 0.35f;
 
         private bool firefliesEnabledAtNight = true;
         private bool firefliesEnabledAtDay = true;
@@ -121,12 +128,12 @@ namespace TimberHearthForest
         /// Called by OWML, once at the start and upon each config setting change.
         public override void Configure(IModConfig config)
         {
-            // Update the tree density
+            forestSectorOptimisationEnabled = ReadConfigString(config, "treeOcclusionOptimisation", "Enabled") == "Enabled";
+
+            SyncExtraTreesHemisphereFromConfig(config);
+
             string treeDensityPreset = ReadConfigString(config, "treeDensity", "Ultra");
             UpdatePropDensity(treeDensityPreset, "tree");
-
-            // Update sector based on whether the sector optimisation is enabled
-            forestSectorOptimisationEnabled = ReadConfigString(config, "treeOcclusionOptimisation", "Enabled") == "Enabled";
 
             // Update the grass density
             string grassDensityPreset = ReadConfigString(config, "grassDensity", "Ultra");
@@ -246,6 +253,7 @@ namespace TimberHearthForest
 
             // Clear the stored trees, grass tufts and particle systems
             spawnedTrees = new List<GameObject>();
+            _treeSpawnTHLocal = new List<Vector3>();
             _treeTargetUniformScales = new List<float>();
             _treeKRandomUniformScales = new List<float>();
             _giantTreeIndices = new HashSet<int>();
@@ -323,6 +331,7 @@ namespace TimberHearthForest
             foreach (PropDetails detail in treeData) {
                 // Get the detail's sector location
                 Vector3 THLocalCoords = new Vector3(detail.position.x, detail.position.y, detail.position.z);
+                _treeSpawnTHLocal.Add(THLocalCoords);
                 Vector3Int sectorCoords = ForestSectorUtils.GetSectorCoordsFromTHCoords(THLocalCoords);
 
                 Vector3 detailWorldCoords = timberHearthBody.transform.TransformPoint(THLocalCoords);
@@ -401,15 +410,12 @@ namespace TimberHearthForest
 
             ModHelper.Console.WriteLine("All trees, grass tufts and fireflies have been created successfully.", MessageType.Success);
 
-            // Update the tree density
             IModConfig cfg = ModHelper.Config;
+            forestSectorOptimisationEnabled = ReadConfigString(cfg, "treeOcclusionOptimisation", "Enabled") == "Enabled";
+            SyncExtraTreesHemisphereFromConfig(cfg);
             string treeDensityPreset = ReadConfigString(cfg, "treeDensity", "Ultra");
             UpdatePropDensity(treeDensityPreset, "tree");
 
-            // Update sector based on whether the sector optimisation is enabled
-            forestSectorOptimisationEnabled = ReadConfigString(cfg, "treeOcclusionOptimisation", "Enabled") == "Enabled";
-
-            // Update the grass density
             string grassDensityPreset = ReadConfigString(cfg, "grassDensity", "Ultra");
             UpdatePropDensity(grassDensityPreset, "grass");
 
@@ -544,7 +550,18 @@ namespace TimberHearthForest
             {
                 if (spawnTicker >= density)
                 {
-                    if (spawnType == "tree") spawnedTrees[i].SetActive(true);
+                    if (spawnType == "tree")
+                    {
+                        bool show = true;
+                        if (_hemisphereModeEnabled && _treeSpawnTHLocal != null && i < _treeSpawnTHLocal.Count)
+                        {
+                            float w = GetTreeHemisphereWeight(i);
+                            show = w >= 0.999f || TreeSlotHash01(i) < w;
+                        }
+
+                        spawnedTrees[i].SetActive(show);
+                    }
+
                     if (spawnType == "grass") spawnedGrass[i].SetActive(true);
                     if (spawnType == "firefly") spawnedFireflies[i].transform.gameObject.SetActive(true);
 
@@ -559,6 +576,55 @@ namespace TimberHearthForest
 
                 spawnTicker++;
             }
+        }
+
+        private static float TreeSlotHash01(int index)
+        {
+            unchecked
+            {
+                uint x = (uint)(index * 73856093 + 19349663);
+                x ^= x >> 16;
+                x *= 0x7feb352du;
+                x ^= x >> 15;
+                return (x & 0xffffff) / 16777216f;
+            }
+        }
+
+        private float GetTreeHemisphereWeight(int treeIndex)
+        {
+            if (treeIndex < 0 || treeIndex >= _treeSpawnTHLocal.Count)
+                return 1f;
+
+            Vector3 p = _treeSpawnTHLocal[treeIndex];
+            if (p.sqrMagnitude < 1e-10f)
+                return 1f;
+
+            Vector3 pDir = p.normalized;
+            Vector3 denseDir = Quaternion.Euler(_hemispherePitchDeg, _hemisphereYawDeg, 0f) * Vector3.right;
+            denseDir.Normalize();
+            float d = Vector3.Dot(pDir, denseDir) + _hemispherePlaneOffset;
+            float b = Mathf.Max(0.05f, _hemisphereBlend);
+            float t = Mathf.Clamp01(Mathf.InverseLerp(-b, b, d));
+            return Mathf.SmoothStep(0f, 1f, t);
+        }
+
+        private void SyncExtraTreesHemisphereFromConfig(IModConfig config)
+        {
+            bool enabled;
+            try
+            {
+                enabled = config.GetSettingsValue<bool>("extraTreesHemisphereGradientEnabled");
+            }
+            catch
+            {
+                enabled = false;
+            }
+
+            _hemisphereModeEnabled = enabled;
+            _hemispherePlaneOffset = Mathf.Clamp(ReadConfigSlider(config, "extraTreesHemispherePlaneOffset", 0f), -1f, 1f);
+            _hemisphereYawDeg = ReadConfigSlider(config, "extraTreesHemisphereYawDeg", 0f);
+            _hemispherePitchDeg = Mathf.Clamp(ReadConfigSlider(config, "extraTreesHemispherePitchDeg", 0f), -90f, 90f);
+            _hemisphereBlend = Mathf.Clamp(ReadConfigSlider(config, "extraTreesHemisphereBlend", 0.35f), 0.05f, 0.95f);
         }
 
         private void RemoveQuantumComponents(GameObject obj)
