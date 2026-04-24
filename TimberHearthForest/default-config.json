@@ -163,18 +163,18 @@
     "extraTreesRandomPerTreeKMin": {
       "title": "Random per-tree size - minimum (x)",
       "type": "slider",
-      "min": 0,
-      "max": 10,
-      "value": 1,
-      "tooltip": "Lower bound for each tree's random size factor when random max is enabled (inclusive)."
+      "min": 0.4,
+      "max": 3,
+      "value": 0.85,
+      "tooltip": "Lower bound for each tree's random size factor when random max is on (inclusive). Range is smaller so random trees do not dominate overall scale."
     },
     "extraTreesRandomPerTreeKMax": {
       "title": "Random per-tree size - maximum (x)",
       "type": "slider",
-      "min": 10,
-      "max": 20,
-      "value": 14,
-      "tooltip": "Upper bound for each tree's random size factor when random max is enabled (inclusive). If it ends up below the minimum, the mod swaps them."
+      "min": 1.2,
+      "max": 5.5,
+      "value": 2.8,
+      "tooltip": "Upper bound for each tree's random size factor when random max is on (inclusive). If below the minimum, the mod swaps them."
     },
     "extraTreesGlobalScale": {
       "title": "Extra Trees Overall Scale",

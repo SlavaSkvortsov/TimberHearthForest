@@ -34,8 +34,8 @@ namespace TimberHearthForest
         private List<float> _treeTargetUniformScales = new List<float>();
         private List<float> _treeKRandomUniformScales;
         private const float TreeGrowthStartFraction = 0.02f;
-        private float _randomPerTreeKMin = 1f;
-        private float _randomPerTreeKMax = 14f;
+        private float _randomPerTreeKMin = 0.85f;
+        private float _randomPerTreeKMax = 2.8f;
         private float _forestGrowthPercent;
         private float _extraTreesGrowthSpeedPercentPerSec;
         private float _extraTreesGrowthIntensity;
@@ -729,8 +729,8 @@ namespace TimberHearthForest
 
         private void SyncExtraTreesRandomPerTreeRangeFromConfig(IModConfig config)
         {
-            float rawLo = ReadConfigSlider(config, "extraTreesRandomPerTreeKMin", 1f);
-            float rawHi = ReadConfigSlider(config, "extraTreesRandomPerTreeKMax", 14f);
+            float rawLo = ReadConfigSlider(config, "extraTreesRandomPerTreeKMin", 0.85f);
+            float rawHi = ReadConfigSlider(config, "extraTreesRandomPerTreeKMax", 2.8f);
             float lo = Mathf.Max(0f, rawLo);
             float hi = Mathf.Max(0f, rawHi);
             if (hi < lo)
