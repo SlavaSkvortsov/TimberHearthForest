@@ -149,12 +149,12 @@
       "tooltip": "How many extra trees become giants (clamped to how many trees actually spawned). 0 disables giants."
     },
     "extraTreesGiantSizeMultiplier": {
-      "title": "Giant tree size (x)",
+      "title": "Giant tree size ramp (1-5)",
       "type": "slider",
       "min": 1,
       "max": 5,
       "value": 2,
-      "tooltip": "Extra scale on top of normal trees for giants only (1 = same size range as non-giants, higher = taller). Applied to the whole growth range."
+      "tooltip": "1 = giants match normal trees. 5 = strongest boost (about 1.85x). Values between ramp smoothly so the slider controls height in small steps."
     },
     "extraTreesGiantShuffleSelection": {
       "title": "Shuffle which trees are giants",

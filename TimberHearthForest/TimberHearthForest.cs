@@ -54,6 +54,8 @@ namespace TimberHearthForest
         private float _giantSizeMultiplier = 2f;
         private const float GiantSizeMultiplierMin = 1f;
         private const float GiantSizeMultiplierMax = 5f;
+        /// <summary>At max giant slider position, actual scale vs normal trees (slider 1 always = 1).</summary>
+        private const float GiantVisualScaleMax = 1.85f;
         private const string ExtraTreesResetGrowthIdle = "Idle";
         private const string ExtraTreesResetGrowthRun = "Reset to saplings (min size, grow again)";
         private string _lastExtraTreesResetGrowthMenuValue = ExtraTreesResetGrowthIdle;
@@ -353,7 +355,7 @@ namespace TimberHearthForest
                     UnityEngine.Random.Range(-0.5f, 0.5f)
                 );
 
-                float randomScale = UnityEngine.Random.Range(0.7f, 1.4f);
+                float randomScale = UnityEngine.Random.Range(0.55f, 1.65f);
                 _treeTargetUniformScales.Add(randomScale);
                 _treeKRandomUniformScales.Add(1f);
 
@@ -425,6 +427,8 @@ namespace TimberHearthForest
             SyncExtraTreesGrowthFromConfig(cfg);
             SyncExtraTreesGlobalScaleFromConfig(cfg);
             SyncExtraTreesGiantsFromConfig(cfg);
+            if (_extraTreesUseRandomCap)
+                ApplyPerTreeRandomScales();
             if (spawnedTrees.Count > 0)
                 RefreshModTreeVisualScales();
         }
@@ -631,6 +635,10 @@ namespace TimberHearthForest
                 for (int i = 0; i < _treeKRandomUniformScales.Count; i++)
                     _treeKRandomUniformScales[i] = 1f;
             }
+
+            if (wantRandom && modeChanged && spawnedTrees != null && spawnedTrees.Count > 0
+                && _treeKRandomUniformScales != null && _treeKRandomUniformScales.Count == spawnedTrees.Count)
+                ApplyPerTreeRandomScales();
 
             if (modeChanged && spawnedTrees != null && spawnedTrees.Count > 0)
                 RefreshModTreeVisualScales();
@@ -881,15 +889,25 @@ namespace TimberHearthForest
             }
         }
 
+        private float GetGiantVisualScaleFactor()
+        {
+            float t = Mathf.InverseLerp(
+                GiantSizeMultiplierMin,
+                GiantSizeMultiplierMax,
+                Mathf.Clamp(_giantSizeMultiplier, GiantSizeMultiplierMin, GiantSizeMultiplierMax));
+            return Mathf.Lerp(1f, GiantVisualScaleMax, t);
+        }
+
         private void RefreshModTreeVisualScales()
         {
             float u = Mathf.Clamp01(_forestGrowthPercent / 100f);
+            float giantVisual = GetGiantVisualScaleFactor();
             for (int i = 0; i < spawnedTrees.Count; i++)
             {
                 float k = _extraTreesUseRandomCap ? _treeKRandomUniformScales[i] : 1f;
                 float b = _treeTargetUniformScales[i] * k;
                 float m = _treeScaleMultiplier;
-                float giantFactor = _giantTreeIndices.Contains(i) ? _giantSizeMultiplier : 1f;
+                float giantFactor = _giantTreeIndices.Contains(i) ? giantVisual : 1f;
                 float sm = b * TreeGrowthStartFraction * m * giantFactor;
                 float lg = b * m * giantFactor;
                 float s = Mathf.Lerp(sm, lg, u);
