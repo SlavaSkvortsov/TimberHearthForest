@@ -49,8 +49,8 @@ namespace TimberHearthForest
         private const float GlobalTreeScaleSliderCurveExponent = 1.35f;
         /// <summary>Random k is lerped from 1 toward raw k so random mode does not dominate overall size.</summary>
         private const float RandomPerTreeKBlend = 0.42f;
-        /// <summary>Cap on base * k for non-giant trees at full linear size before growth lerp and overall scale (approx max vs smallest normal tree).</summary>
-        private const float NonGiantMaxBaseTimesK = 5f;
+        /// <summary>Cap on base * k before growth lerp and giant visual factor (same for all trees so giants at ramp min match normals).</summary>
+        private const float MaxBaseTimesK = 5f;
         private const string ExtraTreesPerTreeScaleIdle = "Idle";
         private const string ExtraTreesPerTreeScaleRandomize = "Randomize each tree";
         private string _lastExtraTreesPerTreeScaleMenuValue = ExtraTreesPerTreeScaleIdle;
@@ -1011,10 +1011,8 @@ namespace TimberHearthForest
             float baseS = _treeTargetUniformScales[treeIndex];
             float kRaw = _extraTreesUseRandomCap ? _treeKRandomUniformScales[treeIndex] : 1f;
             float kEff = Mathf.Lerp(1f, kRaw, RandomPerTreeKBlend);
-            float bk = baseS * kEff;
+            float bk = Mathf.Min(baseS * kEff, MaxBaseTimesK);
             bool giant = _giantTreeIndices.Contains(treeIndex);
-            if (!giant)
-                bk = Mathf.Min(bk, NonGiantMaxBaseTimesK);
 
             float smLinear = bk * TreeGrowthStartFraction;
             float lgLinear = bk * (giant ? giantVisual : 1f);
